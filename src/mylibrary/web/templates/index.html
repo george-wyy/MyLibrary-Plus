@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% macro marker_icon(marker) -%}
+<svg viewBox="0 0 24 24" aria-hidden="true">
+  {% if marker == 'thumbup' %}<path d="M7 10v11H3V10h4Zm0 9h10.2a2 2 0 0 0 2-1.7l1-6A2 2 0 0 0 18.2 9H14l.7-3.1A2.4 2.4 0 0 0 12.4 3L7 10Z"/>
+  {% elif marker == 'thumbdown' %}<path d="M7 14V3H3v11h4Zm0-9h10.2a2 2 0 0 1 2 1.7l1 6a2 2 0 0 1-2 2.3H14l.7 3.1a2.4 2.4 0 0 1-2.3 2.9L7 14Z"/>
+  {% elif marker == 'star' %}<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>
+  {% elif marker == 'question' %}<circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.5 2.5 0 1 1 3.6 2.3c-.9.5-1.3 1-1.3 2M12 17h.01"/>
+  {% elif marker == 'check' %}<circle cx="12" cy="12" r="9"/><path d="m8 12 2.7 2.7L16.5 9"/>
+  {% elif marker == 'wrong' %}<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>
+  {% else %}<circle cx="12" cy="12" r="9"/>{% endif %}
+</svg>
+{%- endmacro %}
+{% block content %}
+<section>
+  <form action="{{ request.url.path }}" method="get" class="search-form"><input name="q" value="{{ q }}" placeholder="Search your library">{% if thumbnail_source %}<input type="hidden" name="thumbnail" value="{{ thumbnail_source }}">{% endif %}{% if lecture_only %}<input type="hidden" name="lecture" value="1">{% endif %}<button>Search</button></form>
+  <div class="library-heading">
+    {% if active_tag %}<h2>#{{ active_tag.name }} <small>{{ papers|length }} papers</small></h2>{% endif %}
+    <div class="filter-chips" role="group" aria-label="Filter papers">
+      <a class="filter-chip{{ ' active' if not lecture_only }}" href="{{ filter_links.all }}">全部 <span class="chip-count">{{ filter_counts.all }}</span></a>
+      <a class="filter-chip{{ ' active' if lecture_only }}" href="{{ filter_links.lecture }}">📖 有讲义 <span class="chip-count">{{ filter_counts.lecture }}</span></a>
+    </div>
+  </div>
+  {% if papers %}
+  <div class="timeline">
+    {% set ns = namespace(day=none) %}
+    {% for paper in papers %}
+    {% set timeline_added = paper.latest_added_at %}
+    {% set local_added = timeline_added|local_time %}
+    {% set paper_day = local_added.date() %}
+    {% if paper_day != ns.day %}
+      {% set ns.day = paper_day %}
+      <h3 class="timeline-day">{{ timeline_added|timeline_day }}</h3>
+    {% endif %}
+    <article class="paper">
+      {% set current_marker = paper.marker or ('check' if paper.is_done else '') %}
+      <details class="marker-picker marker-{{ current_marker or 'empty' }}">
+        <summary title="Set paper marker" aria-label="Set paper marker">{{ marker_icon(current_marker) }}</summary>
+        <div class="marker-menu">
+          {% for value, label in marker_options %}
+          <form class="marker-form" action="/paper/{{ paper.id }}/marker" method="post">
+            <button name="marker" value="{{ value }}" title="{{ label }}" aria-label="{{ label }}" class="marker-{{ value or 'empty' }}">{{ marker_icon(value) }}</button>
+          </form>
+          {% endfor %}
+        </div>
+      </details>
+      {% set sources = card_sources.get(paper.id) or [] %}
+      {% if sources %}
+      <div class="carousel" data-carousel data-index="0">
+        <div class="carousel-track">
+          {% for source in sources %}
+          {% set card_url = '/paper/' ~ paper.id ~ '/thumbnail?source=' ~ source ~ '&size=card&v=' ~ thumbnail_version %}
+          {# Only the visible slide loads up front; the rest hydrate from data-src on demand. #}
+          <img class="carousel-slide{% if loop.first %} active{% endif %}" data-index="{{ loop.index0 }}" {{ 'src' if loop.first else 'data-src' }}="{{ card_url }}" data-card="{{ card_url }}" data-full="/paper/{{ paper.id }}/thumbnail?source={{ source }}&v={{ thumbnail_version }}" data-label="{{ source|replace('-', ' ')|title }}" alt="{{ source|replace('-', ' ')|title }} of {{ paper.title }}" loading="lazy">
+          {% endfor %}
+        </div>
+        <a class="carousel-reader" href="/paper/{{ paper.id }}/read" target="_blank" title="Open in reader" aria-label="Open in reader">↗</a>
+        {% if sources|length > 1 %}
+        <span class="carousel-count"><span data-carousel-current>1</span>/{{ sources|length }}</span>
+        <button class="carousel-nav prev" type="button" data-carousel-prev aria-label="Previous figure">‹</button>
+        <button class="carousel-nav next" type="button" data-carousel-next aria-label="Next figure">›</button>
+        <div class="carousel-dots">
+          {% for source in sources %}<button class="carousel-dot{% if loop.first %} active{% endif %}" type="button" data-carousel-dot="{{ loop.index0 }}" aria-label="Figure {{ loop.index }}"></button>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% else %}<a class="thumbnail-link" href="/paper/{{ paper.id }}"><div class="thumbnail placeholder">No PDF</div></a>{% endif %}
+      <div class="paper-info">
+        <strong><a class="paper-title" href="{{ '/paper/' ~ paper.id ~ '/read' if paper.files else '/paper/' ~ paper.id }}"{% if paper.files %} target="_blank"{% endif %}>{{ paper.title }}</a></strong>
+        <span class="author-line">{{ paper.authors|author_summary }}{% if paper.year %} ({{ paper.year }}){% endif %}</span>
+        {% if paper.citations|citation_max is not none %}<span class="citation-count">Cited by {{ paper.citations|citation_max }}</span>{% endif %}
+        {% if paper.notes %}<a class="card-note" href="/paper/{{ paper.id }}#notes" title="Open notes"><span class="note-indicator" aria-hidden="true"></span><span>{{ paper.notes }}</span></a>{% endif %}
+        {% if paper.tags %}<div class="tag-row">{% for tag in paper.tags %}<span class="tag" style="{{ tag.name|tag_style }}">#{{ tag.name }}</span>{% endfor %}</div>{% endif %}
+        <div class="card-footer"><time class="added-time" datetime="{{ timeline_added.isoformat() }}">Added {{ local_added.strftime('%H:%M') }}</time>{% if card_lectures.get(paper.id) %}<a class="lecture-link" href="/paper/{{ paper.id }}/study" target="_blank">📖 讲义</a>{% endif %}<a class="metadata-link" href="/paper/{{ paper.id }}">Metadata</a></div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% elif lecture_only %}<p class="empty">这里还没有讲义。<a href="{{ filter_links.all }}">查看全部论文</a></p>
+  {% else %}<p class="empty">No papers yet.</p>{% endif %}
+</section>
+{% endblock %}

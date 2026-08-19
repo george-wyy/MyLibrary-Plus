@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>对照阅读 · {{ paper.title }}</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/static/pdfview.css?v=6">
+  <link rel="stylesheet" href="/static/annotations.css?v=18">
+  <link rel="stylesheet" href="/static/vendor/katex/katex.min.css?v=1">
+  <style>
+    * { box-sizing: border-box; }
+    /* overflow:hidden on BOTH html and body: the page itself must never
+       scroll (the two panes scroll internally). body alone is not enough -
+       anything that still overflows would scroll the viewport and carry the
+       header off-screen. */
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+    body { display: flex; flex-direction: column; font: 16px/1.65 -apple-system, "PingFang SC", "Segoe UI", system-ui, sans-serif; color: #24292f; background: #eceef0; }
+    .study-head { flex: none; display: flex; align-items: center; gap: 1rem; padding: .55rem .9rem; background: #2f393e; color: #eef1f2; }
+    .study-head .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .98rem; font-weight: 600; }
+    .study-head a { color: #cfe0ea; text-decoration: none; font-size: .85rem; padding: .3rem .6rem; border: 1px solid #ffffff33; border-radius: 6px; white-space: nowrap; }
+    .study-head a:hover { background: #ffffff1a; }
+    .view-switch { flex: none; display: flex; gap: .15rem; padding: .15rem; background: #ffffff0d; border: 1px solid #ffffff26; border-radius: 8px; }
+    .view-switch button { padding: .28rem .6rem; color: #cfe0ea; background: transparent; border: 0; border-radius: 6px; font-size: .82rem; cursor: pointer; }
+    .view-switch button:hover { background: #ffffff1a; }
+    .view-switch button.is-active { color: #fff; background: #3f7187; }
+    .study-split { flex: 1; display: flex; min-height: 0; }
+    .study-split.view-pdf .study-notes-wrap, .study-split.view-notes .study-pdf { display: none; }
+    .study-split.view-pdf .study-pdf, .study-split.view-notes .study-notes-wrap { flex: 1 1 100%; border-right: 0; }
+    /* Left pane hosts the same pdf.js viewer as the reader. The pane itself
+       stays static; a separate inner element is the scroll container, so
+       overlays positioned absolute against the pane (zoom controls, status)
+       don't get carried along by the pane's own scrolling - same split the
+       notes column already uses (.study-notes-wrap vs .study-notes). */
+    .study-pdf { position: relative; flex: 1 1 50%; min-width: 0; border-right: 3px solid #cfd3d6; background: #dfe2e3; }
+    .study-pdf-scroll { position: absolute; inset: 0; overflow: auto; }
+    .study-pdf .pdf-pages { padding: 1rem .6rem 3rem; gap: 1rem; }
+    .study-pdf .zoom-controls { position: absolute; right: .7rem; bottom: .7rem; }
+    .study-pdf .pdf-page-layout-toggle { position: absolute; right: .7rem; bottom: 3.55rem; }
+    .study-pdf .pdf-toc-toggle { position: absolute; top: .7rem; left: .7rem; }
+    .study-pdf .pdf-toc { position: absolute; top: .7rem; left: .7rem; bottom: .7rem; box-shadow: 0 4px 18px #00000030; }
+    .study-pdf-status { position: absolute; top: .5rem; left: 50%; z-index: 20; transform: translateX(-50%); padding: .3rem .7rem; color: #566268; background: #f7f7f4e8; border: 1px solid #ccd1d2; border-radius: 999px; font-size: .76rem; white-space: nowrap; pointer-events: none; }
+    .study-pdf-status[hidden] { display: none; }
+    /* The notes column and its own zoom control, which scales the lecture text. */
+    /* min-height:0 on both is load-bearing: a flex item's default min-height
+       is auto, so the notes column would grow to its full content height
+       (thousands of px) instead of scrolling inside its own overflow-y:auto.
+       That leaked height made the whole <body> scrollable, which scrolled the
+       fixed header out of view and looked like the pane "scrolling the page". */
+    .study-notes-wrap { position: relative; display: flex; flex: 1 1 50%; min-width: 0; min-height: 0; }
+    .study-notes { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; background: #fff; }
+    .notes-zoom { position: absolute; right: .7rem; bottom: .7rem; opacity: .4; transition: opacity .15s ease; }
+    .study-notes-wrap:hover .notes-zoom, .notes-zoom:focus-within { opacity: 1; }
+    /* Everything inside the notes column is sized in em so the whole column
+       scales from one font-size on #lecture (see the notes zoom control). */
+    .markdown-body { max-width: 47.5em; margin: 0 auto; padding: 2em 2.4em 5em; }
+    .markdown-body h1 { font-size: 1.7em; margin: 0 0 1rem; padding-bottom: .3em; border-bottom: 2px solid #eaecef; line-height: 1.35; }
+    .markdown-body h2 { font-size: 1.32em; margin: 1.5em 0 .6em; padding-bottom: .22em; border-bottom: 1px solid #eaecef; }
+    .markdown-body h3 { font-size: 1.1em; margin: 1.3em 0 .45em; color: #2f5b8a; }
+    .markdown-body p, .markdown-body li { color: #2b3238; }
+    .markdown-body ul, .markdown-body ol { padding-left: 1.4em; }
+    .markdown-body li { margin: .3em 0; }
+    .markdown-body code { background: #f2f4f6; padding: .12em .38em; border-radius: 4px; font-size: .88em; }
+    .markdown-body pre { background: #f6f8fa; padding: 1em; border-radius: 8px; overflow-x: auto; }
+    .markdown-body pre code { background: none; padding: 0; }
+    .markdown-body blockquote { margin: 1em 0; padding: .3em 1em; color: #57606a; border-left: 4px solid #d0d7de; background: #f6f8fa; border-radius: 0 6px 6px 0; }
+    .markdown-body img { max-width: 100%; height: auto; display: block; margin: .3em auto; border: 1px solid #e2e5e7; border-radius: 6px; background: #fff; }
+    .markdown-body figure { margin: 1.4em 0; padding: .8em; background: #f7f9fb; border: 1px solid #e6eaee; border-radius: 8px; }
+    .markdown-body figcaption { margin-top: .5em; font-size: .85em; color: #6b7379; text-align: center; }
+    .markdown-body .bg-box { margin: 1.2em 0; padding: .8em 1.1em; background: #fff8ec; border: 1px solid #f0dcae; border-left: 4px solid #e3a325; border-radius: 0 8px 8px 0; }
+    .markdown-body .bg-box > :first-child { margin-top: 0; }
+    .markdown-body .bg-box > :last-child { margin-bottom: 0; }
+    .markdown-body .bg-box .bg-title { font-weight: 700; color: #a56a08; font-size: .9em; }
+    .markdown-body table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: .92em; }
+    .markdown-body th, .markdown-body td { border: 1px solid #d0d7de; padding: .45em .7em; text-align: left; }
+    .markdown-body th { background: #f6f8fa; }
+    .markdown-body a { color: #2f5b8a; }
+    .study-loading { padding: 2rem; color: #6b7379; }
+    .markdown-body .wikilink { font: inherit; color: #2f5b8a; background: #eaf1f8; border: 1px solid #cddef0; border-radius: 4px; padding: 0 .3rem; margin: 0 .05rem; cursor: pointer; }
+    .markdown-body .wikilink:hover { background: #d7e6f5; border-color: #a9c8e6; }
+    .markdown-body .wikilink::before { content: "🔗"; font-size: .72em; margin-right: .12rem; opacity: .55; }
+    /* The popover is a fixed frame that never scrolls itself: only the body
+       scrolls, so the drag handles stay pinned to the edges. */
+    /* z-index 120 keeps the popover above the annotation panel (80); the
+       inline composer (150) still sits above it so note text stays annotatable. */
+    .wikilink-popover { display: flex; flex-direction: column; overflow: hidden; background: #fff; border: 1px solid #cfd6dd; border-radius: 10px; box-shadow: 0 14px 40px #00000038; }
+    .wikilink-pop-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem .8rem; background: #f3f6f9; border-bottom: 1px solid #e3e8ed; cursor: move; }
+    .wikilink-pop-title { font-weight: 700; font-size: .92rem; color: #2f5b8a; }
+    .wikilink-pop-close { border: 0; background: transparent; font-size: 1.25rem; line-height: 1; color: #6b7379; cursor: pointer; padding: 0 .2rem; }
+    .wikilink-pop-body { flex: 1; min-height: 0; overflow-y: auto; padding: .6rem 1.1rem 1.2rem; max-width: none; margin: 0; }
+    .wikilink-pop-body h1 { font-size: 1.15rem; border: 0; margin: .3rem 0 .6rem; padding: 0; }
+    .wikilink-backlinks { margin-top: 1rem; padding-top: .6rem; border-top: 1px dashed #d0d7de; font-size: .85rem; }
+    .wikilink-backlinks .bl-title { color: #6b7379; font-weight: 600; }
+    .wikilink-backlinks ul { margin: .3rem 0 0; padding-left: 1.2rem; }
+    .note-annotation-mark { background: #ffec99; border-radius: 2px; cursor: pointer; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+    .note-detail { margin: .9rem 0 0; padding: .6rem .8rem; background: #fbfaf3; border: 1px solid #e6e2cf; border-radius: 8px; font-size: .9rem; }
+    .note-detail-head { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; }
+    .note-detail-paper { color: #8a8f94; font-size: .8rem; font-weight: 400; }
+    .note-detail-close { margin-left: auto; border: 0; background: transparent; font-size: 1.1rem; line-height: 1; color: #8a8f94; cursor: pointer; padding: 0 .2rem; }
+    .note-detail-note { color: #2b3238; white-space: pre-wrap; }
+    .note-detail-replies { margin-top: .4rem; display: grid; gap: .3rem; }
+    .note-reply { padding: .3rem .5rem; border-radius: 6px; background: #eef1f4; font-size: .85rem; }
+    .note-reply-assistant { background: #eaf4ec; }
+    .note-reply-form { margin-top: .5rem; display: flex; gap: .4rem; }
+    .note-reply-input { flex: 1; resize: vertical; padding: .35rem .5rem; border: 1px solid #cfd6dd; border-radius: 6px; font: inherit; font-size: .85rem; }
+    .note-reply-send { border: 0; background: #2f5b8a; color: #fff; border-radius: 6px; padding: 0 .8rem; cursor: pointer; }
+    @media (max-width: 820px) {
+      .study-split { flex-direction: column; }
+      .study-pdf { flex: 1 1 45vh; border-right: 0; border-bottom: 3px solid #cfd3d6; }
+      .markdown-body { padding: 1.3em 1.1em 4em; }
+    }
+  </style>
+</head>
+<body class="study-page" data-paper-id="{{ paper.id }}">
+  <header class="study-head">
+    <span class="title">📖 {{ paper.title }}</span>
+    <div class="view-switch" id="view-switch" role="group" aria-label="显示模式">
+      <button type="button" data-view="pdf" title="只看 PDF">PDF</button>
+      <button type="button" data-view="both" title="对照阅读">对照</button>
+      <button type="button" data-view="notes" title="只看讲义">讲义</button>
+    </div>
+    <a href="/paper/{{ paper.id }}/read" target="_blank">阅读器</a>
+    <a href="/paper/{{ paper.id }}">详情</a>
+    <a href="/">← 时间线</a>
+  </header>
+  <div class="study-split" id="study-split">
+    <div class="study-pdf" id="study-pdf">
+      <div class="study-pdf-scroll" id="study-pdf-scroll">
+        <div id="pdf-pages" class="pdf-pages" aria-label="PDF document"></div>
+      </div>
+      <div id="pdf-status" class="study-pdf-status" role="status">PDF 加载中…</div>
+      <div id="zoom-controls" class="zoom-controls" aria-label="PDF zoom">
+        <button type="button" data-zoom="out" title="缩小" aria-label="缩小">−</button>
+        <button type="button" id="zoom-display" data-zoom="reset" title="适应宽度">100%</button>
+        <button type="button" data-zoom="in" title="放大" aria-label="放大">+</button>
+      </div>
+      <button type="button" id="page-layout-toggle" class="pdf-page-layout-toggle" title="双页显示" aria-label="双页显示" aria-pressed="false">⊞ 双页</button>
+      <button type="button" id="toc-toggle" class="pdf-toc-toggle" title="目录" aria-label="目录" hidden>☰ 目录</button>
+      <div id="pdf-toc" class="pdf-toc" hidden aria-label="PDF outline">
+        <div class="pdf-toc-head"><span>目录</span><button type="button" class="pdf-toc-close" aria-label="关闭目录">×</button></div>
+        <div class="pdf-toc-body"></div>
+      </div>
+    </div>
+    <div class="study-notes-wrap">
+      <div class="study-notes" id="study-notes"><article id="lecture" class="markdown-body"><p class="study-loading">讲义加载中…</p></article></div>
+      <div id="notes-zoom" class="zoom-controls notes-zoom" aria-label="讲义字号">
+        <button type="button" data-notes-zoom="out" title="讲义缩小" aria-label="讲义缩小">A−</button>
+        <button type="button" id="notes-zoom-display" data-notes-zoom="reset" title="恢复默认字号">100%</button>
+        <button type="button" data-notes-zoom="in" title="讲义放大" aria-label="讲义放大">A+</button>
+      </div>
+    </div>
+  </div>
+  <script src="/static/vendor/marked/marked.min.js"></script>
+  <script src="/static/vendor/katex/katex.min.js?v=1"></script>
+  <script type="module" src="/static/study.js?v=43"></script>
+</body>
+</html>

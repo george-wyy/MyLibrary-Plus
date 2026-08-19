@@ -1,0 +1,58 @@
+/* Styles for the shared pdf.js viewer (PdfView): used by the full-page reader
+   and by the left pane of the study split view. */
+.pdf-pages { display: grid; justify-items: center; gap: 1.4rem; width: max-content; min-width: 100%; padding: 0 1rem 4rem; }
+/* Two-up: consecutive pages pair off into rows of 2 via grid auto-flow
+   (page 1+2, 3+4, ...); align-items:start stops a shorter neighbor page
+   from being stretched to match a taller one in the same row. */
+.pdf-pages.pdf-pages-2up { grid-template-columns: repeat(2, auto); justify-content: center; align-items: start; }
+.pdf-page { position: relative; flex: none; background: white; box-shadow: 0 2px 12px #25333a32; }
+.page-content { position: absolute; inset: 0 auto auto 0; transform-origin: 0 0; }
+.pdf-page canvas { display: block; position: absolute; inset: 0; }
+.highlight-layer { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.saved-highlight { position: absolute; display: block; padding: 0; border: 0; border-radius: 2px; mix-blend-mode: multiply; pointer-events: none; }
+.saved-highlight.annotation-flash { outline: 3px solid #d69623; }
+.textLayer { color-scheme: only light; position: absolute; text-align: initial; inset: 0; overflow: clip; opacity: 1; line-height: 1; letter-spacing: normal; word-spacing: normal; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; caret-color: CanvasText; z-index: 2; --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size)); }
+.textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; user-select: text; }
+.textLayer > :not(.markedContent), .textLayer .markedContent span:not(.markedContent) { z-index: 1; --font-height: 0; font-size: calc(var(--text-scale-factor) * var(--font-height)); --scale-x: 1; --rotate: 0deg; transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)); }
+.textLayer .markedContent { display: contents; }
+.textLayer ::selection { background: #547dac55; color: transparent; }
+.zoom-controls { position: fixed; right: 1rem; bottom: 1rem; z-index: 30; display: flex; overflow: hidden; background: #303a3fe8; border: 1px solid #ffffff22; border-radius: 8px; box-shadow: 0 3px 14px #0004; }
+.zoom-controls button { min-width: 2.35rem; height: 2.35rem; padding: 0 .55rem; color: #f3f5f5; background: transparent; border: 0; border-right: 1px solid #ffffff20; font-size: 1.12rem; cursor: pointer; }
+.zoom-controls button:last-child { border-right: 0; }
+.zoom-controls button:hover { background: #ffffff18; }
+#zoom-display { min-width: 3.8rem; font-size: .78rem; }
+@media (max-width: 640px) { .pdf-pages { padding-inline: 0; } }
+
+.pdf-page-layout-toggle { position: fixed; right: 1rem; bottom: 3.85rem; z-index: 30; display: flex; align-items: center; gap: .3rem; height: 2.1rem; padding: 0 .65rem; color: #f3f5f5; background: #303a3fe8; border: 1px solid #ffffff22; border-radius: 8px; box-shadow: 0 3px 14px #0004; font-size: .78rem; cursor: pointer; }
+.pdf-page-layout-toggle:hover { background: #3a454bea; }
+.pdf-page-layout-toggle.is-active { background: #3f7187; border-color: #8fb3c3; }
+
+/* --- Outline / table of contents (pdf.js getOutline(), when the PDF has one) --- */
+.pdf-toc-toggle { position: fixed; left: 1rem; bottom: 1rem; z-index: 30; display: flex; align-items: center; gap: .3rem; height: 2.35rem; padding: 0 .8rem; color: #f3f5f5; background: #303a3fe8; border: 1px solid #ffffff22; border-radius: 8px; box-shadow: 0 3px 14px #0004; font-size: .82rem; cursor: pointer; }
+.pdf-toc-toggle:hover { background: #3a454bea; }
+.pdf-toc-toggle[hidden] { display: none; }
+.pdf-toc { position: fixed; left: 1rem; top: 1rem; bottom: 4.3rem; z-index: 35; display: grid; grid-template-rows: auto 1fr; width: min(300px, 82vw); overflow: hidden; background: #f7f8f7; border: 1px solid #c9cecf; border-radius: 10px; box-shadow: 0 8px 30px #0004a0; font-size: .85rem; }
+.pdf-toc[hidden] { display: none; }
+.pdf-toc-head { display: flex; align-items: center; justify-content: space-between; flex: none; padding: .55rem .75rem; color: #eef3f4; background: #324148; font-weight: 600; }
+.pdf-toc-close { border: 0; background: transparent; color: inherit; font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 0 .2rem; }
+.pdf-toc-body { overflow-y: auto; padding: .4rem 0; }
+.pdf-toc-item { display: block; width: 100%; padding: .42rem .9rem; color: #2b3238; background: transparent; border: 0; border-bottom: 1px solid #eceeee; text-align: left; cursor: pointer; font: inherit; }
+.pdf-toc-item:hover { background: #eef1f0; }
+
+/* --- Figure hotspots: click a whole image to annotate it --- */
+.figure-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.figure-hotspot {
+  position: absolute; margin: 0; padding: 0; background: transparent;
+  border: 1.5px dashed transparent; border-radius: 5px; cursor: pointer;
+  pointer-events: auto; transition: background .12s ease, border-color .12s ease;
+}
+.figure-hotspot:hover, .figure-hotspot:focus-visible {
+  background: #2f6fed1a; border-color: #2f6fedcc; outline: none;
+}
+.figure-hotspot::after {
+  content: "标注此图"; position: absolute; top: 4px; left: 4px;
+  padding: .12rem .45rem; font-size: .72rem; line-height: 1.4; white-space: nowrap;
+  color: #fff; background: #2f6fed; border-radius: 4px; box-shadow: 0 1px 4px #0003;
+  opacity: 0; transform: translateY(-2px); transition: opacity .12s ease, transform .12s ease;
+}
+.figure-hotspot:hover::after, .figure-hotspot:focus-visible::after { opacity: 1; transform: none; }

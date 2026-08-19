@@ -1,0 +1,564 @@
+.annotation-toggle {
+  position: fixed;
+  top: .75rem;
+  right: 4rem;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  gap: .38rem;
+  height: 2.55rem;
+  padding: 0 .75rem;
+  color: #39484f;
+  background: #f7f7f4ed;
+  border: 1px solid #c5cbcd;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px #0003;
+  cursor: pointer;
+}
+
+/* Shared frame mechanics for concept and annotation reading windows. */
+.floating-window { position: fixed; }
+.floating-window-drag-handle { touch-action: none; }
+.floating-window.is-dragging,
+.floating-window.is-dragging * { cursor: move; }
+.floating-window.is-resizing,
+.floating-window.is-dragging { user-select: none; }
+.floating-window-resize {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  touch-action: none;
+}
+.floating-window-resize-e { top: 0; right: 0; width: 7px; height: 100%; cursor: ew-resize; }
+.floating-window-resize-w { top: 0; left: 0; width: 7px; height: 100%; cursor: ew-resize; }
+.floating-window-resize-s { left: 0; bottom: 0; width: 100%; height: 7px; cursor: ns-resize; }
+.floating-window-resize-se { right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; }
+.floating-window-resize-sw { left: 0; bottom: 0; width: 16px; height: 16px; cursor: nesw-resize; }
+.floating-window-resize-se::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #b7c1c9;
+  border-bottom: 2px solid #b7c1c9;
+  border-radius: 0 0 2px 0;
+}
+.annotation-toggle:hover { background: #e9eceb; }
+.study-page .annotation-toggle {
+  position: static;
+  flex: none;
+  height: 2.15rem;
+  color: #e6edef;
+  background: #ffffff0d;
+  border-color: #ffffff33;
+  box-shadow: none;
+}
+.study-page .annotation-toggle:hover { background: #ffffff1a; }
+.annotation-toggle b {
+  display: grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 .25rem;
+  color: #fff;
+  background: #46718a;
+  border-radius: 999px;
+  font-size: .72rem;
+}
+.annotation-panel {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 80;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, min(36vh, 300px)) minmax(0, 1fr);
+  width: min(380px, 94vw);
+  overflow: hidden;
+  color: #273238;
+  background: #f7f8f7;
+  border-left: 1px solid #c9cecf;
+  box-shadow: -8px 0 30px #1f2c3226;
+  font: 14px/1.5 -apple-system, "PingFang SC", "Segoe UI", system-ui, sans-serif;
+}
+.annotation-panel[hidden] { display: none; }
+.annotation-panel-head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  height: 3.8rem;
+  padding: .65rem .75rem;
+  color: #eef3f4;
+  background: #324148;
+}
+/* min-width stops the title from being squeezed character-by-character when
+   the scope select + action buttons in this row don't leave enough room -
+   overflow/ellipsis on the subtitle absorbs the rest instead. */
+.annotation-panel-head div { flex: 1; min-width: 3.6rem; display: grid; overflow: hidden; }
+.annotation-panel-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; }
+.annotation-panel-head span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #bfcdd2; font-size: .72rem; }
+.annotation-scope > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.annotation-scope select {
+  max-width: 6.5rem;
+  padding: .34rem .45rem;
+  color: #e6edef;
+  background: #ffffff0d;
+  border: 1px solid #ffffff2e;
+  border-radius: 5px;
+  font: inherit;
+  font-size: .75rem;
+}
+.annotation-scope option { color: #273238; background: #fff; }
+.annotation-panel-head button {
+  padding: .35rem .5rem;
+  color: #e6edef;
+  background: #ffffff0d;
+  border: 1px solid #ffffff2e;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.annotation-panel-head button:last-child { border: 0; font-size: 1.3rem; }
+.annotation-panel-head [data-panel-action="float"] { font-size: .78rem; }
+.annotation-panel-head [data-panel-action="float"][aria-pressed="true"] { color: #fff; background: #3f7187; border-color: #8fb3c3; }
+.annotation-panel-head [data-panel-action="float"]:disabled { opacity: .48; cursor: not-allowed; }
+.annotation-panel-status {
+  min-height: 1.8rem;
+  padding: .3rem .8rem;
+  color: #47616c;
+  background: #edf3f4;
+  font-size: .75rem;
+}
+.annotation-panel-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(6.5rem, 34%);
+  gap: .45rem;
+  min-height: 3.55rem;
+  padding: .48rem .65rem .55rem;
+  background: #f7f8f7;
+  border-bottom: 1px solid #d8dcdd;
+}
+.annotation-panel-filters label { display: grid; gap: .18rem; min-width: 0; }
+.annotation-panel-filters label > span {
+  color: #617078;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.annotation-panel-filters input,
+.annotation-panel-filters select,
+.annotation-tags-form input {
+  min-width: 0;
+  width: 100%;
+  padding: .42rem .5rem;
+  color: #2f3b42;
+  background: #fff;
+  border: 1px solid #bdc7ca;
+  border-radius: 6px;
+  font: inherit;
+  font-size: .78rem;
+}
+.annotation-panel-filters :is(input, select):focus,
+.annotation-tags-form input:focus {
+  border-color: #708eaa;
+  outline: 2px solid #7899ba66;
+  outline-offset: 1px;
+}
+.annotation-panel-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding: .5rem;
+  border-bottom: 1px solid #d8dcdd;
+}
+.annotation-list-item {
+  display: grid;
+  width: 100%;
+  gap: .18rem;
+  margin-bottom: .35rem;
+  padding: .58rem .65rem;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #d9ddde;
+  border-radius: 7px;
+  text-align: left;
+  cursor: pointer;
+}
+.annotation-list-item:hover,
+.annotation-list-item.is-active { border-color: #6f98aa; background: #f2f8fa; }
+.annotation-list-item.is-candidate {
+  border-color: #c88928;
+  box-shadow: inset 3px 0 #d79a34;
+}
+.annotation-list-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  min-width: 0;
+}
+.annotation-list-meta .annotation-location { min-width: 0; }
+.annotation-location {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #557481;
+  font-size: .72rem;
+  font-weight: 700;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.annotation-list-item q {
+  overflow: hidden;
+  color: #49565c;
+  font-size: .8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annotation-preview {
+  overflow: hidden;
+  color: #273238;
+  font-size: .84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annotation-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+  min-width: 0;
+}
+.annotation-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: .08rem .38rem;
+  overflow-wrap: anywhere;
+  color: #45627c;
+  background: #edf3f8;
+  border: 1px solid #b7c7d7;
+  border-radius: 999px;
+  font-size: .68rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.annotation-timestamp {
+  flex: none;
+  color: #78868d;
+  font-size: .68rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.annotation-panel-detail {
+  min-height: 0;
+  overflow-y: auto;
+  padding: .85rem;
+}
+.annotation-candidate-picker { display: grid; gap: .35rem; }
+.annotation-candidate-title { color: #2f4f5e; font-size: 1rem; }
+.annotation-candidate-hint { margin: 0 0 .35rem; color: #738087; font-size: .8rem; }
+.annotation-candidate-choices { display: grid; gap: .5rem; }
+.annotation-candidate-choice {
+  display: grid;
+  gap: .28rem;
+  width: 100%;
+  padding: .72rem .78rem !important;
+  color: #273238 !important;
+  background: #fffdf6 !important;
+  border: 1px solid #dfc78f !important;
+  text-align: left;
+}
+.annotation-candidate-choice:hover,
+.annotation-candidate-choice:focus-visible {
+  border-color: #b97c20 !important;
+  outline: 2px solid #e7bd78;
+  outline-offset: 1px;
+}
+.annotation-candidate-choice q {
+  overflow: hidden;
+  color: #69747a;
+  font-size: .77rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annotation-empty { margin: .6rem; color: #768187; font-size: .83rem; }
+.annotation-compose,
+.annotation-thread { display: grid; gap: .7rem; }
+.annotation-compose blockquote,
+.annotation-thread blockquote {
+  margin: 0;
+  padding: .65rem .75rem;
+  color: #4b565c;
+  background: #fff9dc;
+  border-left: 3px solid #e3bb3f;
+  border-radius: 0 6px 6px 0;
+  font-size: .83rem;
+}
+.annotation-compose label { display: grid; gap: .35rem; color: #4c5a60; font-weight: 650; }
+.annotation-panel textarea {
+  width: 100%;
+  resize: vertical;
+  padding: .65rem;
+  color: #263238;
+  background: #fff;
+  border: 1px solid #bdc7ca;
+  border-radius: 6px;
+  font: inherit;
+}
+.annotation-panel textarea:focus { outline: 2px solid #77a9bd; outline-offset: 1px; }
+.annotation-panel form[aria-busy="true"] {
+  opacity: .68;
+  transition: opacity .12s ease;
+}
+.annotation-panel form[aria-busy="true"] :is(input, textarea, select, button) { cursor: progress; }
+.annotation-form-actions,
+.annotation-thread-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.annotation-hint { margin-left: auto; align-self: center; color: #8b959a; font-size: .72rem; white-space: nowrap; }
+.annotation-panel-detail button {
+  padding: .42rem .68rem;
+  color: #34464e;
+  background: #edf0f0;
+  border: 1px solid #ccd2d4;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.annotation-panel-detail button.primary { color: #fff; background: #426f83; border-color: #426f83; }
+.annotation-panel-detail button.danger { color: #943f35; }
+.annotation-thread-location {
+  justify-self: start;
+  color: #426d80 !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  font-size: .75rem;
+  font-weight: 700;
+}
+.annotation-thread-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem .8rem;
+  margin-top: -.35rem;
+  padding-bottom: .45rem;
+  border-bottom: 1px solid #dde2e4;
+}
+.annotation-thread-tags { min-width: 0; }
+.annotation-thread-tag-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .55rem;
+}
+.annotation-thread-tag-row .annotation-tags { flex: 1; }
+.annotation-no-tags { color: #879197; font-size: .76rem; }
+.annotation-edit-tags {
+  flex: none;
+  padding: .18rem .4rem !important;
+  color: #506d85 !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  font-size: .72rem;
+}
+.annotation-edit-tags:hover,
+.annotation-edit-tags:focus-visible { border-color: #9fb3c4 !important; }
+.annotation-tags-form { display: grid; gap: .45rem; }
+.annotation-tags-form label {
+  display: grid;
+  gap: .25rem;
+  color: #526168;
+  font-size: .74rem;
+  font-weight: 700;
+}
+.annotation-root-note { margin: 0; padding: .15rem 0; white-space: pre-wrap; }
+
+/* --- Markdown rendered inside annotation bodies and replies --- */
+.annotation-md { white-space: normal; font-size: .88rem; line-height: 1.6; overflow-wrap: anywhere; }
+.annotation-md > :first-child { margin-top: 0; }
+.annotation-md > :last-child { margin-bottom: 0; }
+.annotation-md p { margin: .4em 0; }
+.annotation-md h1, .annotation-md h2, .annotation-md h3,
+.annotation-md h4, .annotation-md h5, .annotation-md h6 { margin: .8em 0 .35em; font-size: 1.05em; line-height: 1.35; color: #2f4c60; }
+.annotation-md ul, .annotation-md ol { margin: .4em 0; padding-left: 1.3em; }
+.annotation-md li { margin: .18em 0; }
+.annotation-md code { padding: .08em .32em; background: #eceff1; border-radius: 3px; font-size: .92em; }
+.annotation-md pre { margin: .5em 0; padding: .6em .7em; overflow-x: auto; background: #f2f4f6; border: 1px solid #e0e4e7; border-radius: 6px; }
+.annotation-md pre code { padding: 0; background: none; }
+.annotation-md blockquote { margin: .5em 0; padding: .2em .7em; color: #57606a; border-left: 3px solid #cfd6dd; background: #f5f7f9; border-radius: 0 5px 5px 0; }
+.annotation-md table { border-collapse: collapse; margin: .5em 0; font-size: .95em; }
+.annotation-md th, .annotation-md td { padding: .25em .5em; border: 1px solid #d8dde1; text-align: left; }
+.annotation-md th { background: #eef1f3; }
+.annotation-md img { max-width: 100%; height: auto; border-radius: 4px; }
+.annotation-md hr { margin: .7em 0; border: 0; border-top: 1px solid #dfe3e6; }
+.annotation-md a { color: #2f5b8a; }
+.annotation-math { padding: .04em .28em; background: #f4f1e6; border: 1px solid #e6dfc8; border-radius: 3px; color: #6a5a2a; font-size: .92em; }
+.annotation-replies { display: grid; gap: .45rem; margin-top: .25rem; }
+.annotation-reply {
+  display: grid;
+  gap: .35rem;
+  padding: .55rem .65rem;
+  background: #eef1f1;
+  border-radius: 7px;
+}
+.annotation-reply.role-assistant { background: #eaf2f7; border-left: 3px solid #5d91ae; }
+.annotation-reply-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+}
+.annotation-reply-role { color: #59717c; font-size: .7rem; font-weight: 800; }
+.annotation-reply p { margin: .35em 0; }
+.annotation-reply .annotation-md > :first-child { margin-top: 0; }
+.annotation-reply .annotation-md > :last-child { margin-bottom: 0; }
+.annotation-reply-form { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: .45rem; }
+.annotation-float {
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #273238;
+  background: #fbfcfb;
+  border: 1px solid #aebdc5;
+  border-radius: 10px;
+  box-shadow: 0 16px 45px #17262e44;
+  font: 14px/1.5 -apple-system, "PingFang SC", "Segoe UI", system-ui, sans-serif;
+}
+.annotation-float[hidden] { display: none; }
+.annotation-float-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  min-height: 2.8rem;
+  padding: .5rem .75rem;
+  background: #edf3f5;
+  border-bottom: 1px solid #d2dce1;
+  cursor: move;
+}
+.annotation-float-head strong { flex: 1; color: #315367; font-size: .9rem; }
+.annotation-float-head-actions { display: flex; align-items: center; gap: .25rem; }
+.annotation-float-head button { padding: .22rem .42rem; color: #426273; background: transparent; border: 1px solid transparent; border-radius: 5px; cursor: pointer; font: inherit; font-size: .76rem; }
+.annotation-float-head button:hover, .annotation-float-head button:focus-visible { border-color: #9cb3c0; background: #fff; outline: 2px solid #77a9bd; outline-offset: 1px; }
+.annotation-float-tabs { flex: none; display: flex; gap: .3rem; overflow-x: auto; padding: .42rem .55rem; border-bottom: 1px solid #e0e6e9; }
+.annotation-float-tab { flex: 0 0 auto; max-width: 11rem; overflow: hidden; padding: .26rem .48rem; color: #53646c; background: #f2f5f5; border: 1px solid #d1dcdf; border-radius: 999px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; font: inherit; font-size: .74rem; }
+.annotation-float-tab.is-active { color: #fff; background: #46778c; border-color: #46778c; }
+.annotation-float-tab:focus-visible { outline: 2px solid #77a9bd; outline-offset: 2px; }
+.annotation-float-content { flex: 1; min-height: 0; overflow: auto; padding: .85rem 1rem 1.3rem; }
+.annotation-float-thread { display: grid; gap: .7rem; }
+.annotation-float-thread blockquote { margin: 0; padding: .35rem .65rem; color: #4d5c63; border-left: 3px solid #ccd9df; background: #f4f7f8; border-radius: 0 5px 5px 0; }
+.annotation-edit-form { display: grid; gap: .5rem; }
+/* --- Inline composer: Zotero-style color+note popup at the selection ---
+   z-index 150: above the wikilink popover (120) and annotation float (140),
+   since a "note" annotation opens this over a selection inside that popover. */
+.annotation-inline-composer {
+  position: fixed;
+  z-index: 150;
+  display: grid;
+  gap: .55rem;
+  width: min(320px, 92vw);
+  padding: .65rem;
+  background: #fdfdfc;
+  border: 1px solid #d5d9da;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px #00000038;
+  font: 14px/1.5 -apple-system, "PingFang SC", "Segoe UI", system-ui, sans-serif;
+}
+.annotation-inline-composer[hidden] { display: none; }
+.annotation-inline-colors { display: flex; gap: .4rem; padding: 0 .1rem .55rem; border-bottom: 1px solid #e7e9e9; }
+.annotation-color-swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px #00000018;
+  cursor: pointer;
+}
+.annotation-color-swatch:hover { transform: scale(1.08); }
+.annotation-color-swatch.is-selected { border-color: #2f393e; }
+.annotation-inline-note {
+  width: 100%;
+  min-height: 4.4rem;
+  padding: .5rem .6rem;
+  color: #273238;
+  background: #fff;
+  border: 1px solid #d5d9da;
+  border-radius: 6px;
+  font: inherit;
+  font-size: .87rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+.annotation-inline-actions { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.annotation-inline-hint { color: #8a9096; font-size: .7rem; }
+.annotation-inline-delete {
+  padding: .3rem .7rem;
+  color: #98483f;
+  background: transparent;
+  border: 1px solid #d8c3c0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: .78rem;
+}
+.annotation-inline-delete:hover { background: #f7ebe9; }
+.annotation-inline-composer:focus { outline: 2px solid #77a9bd; outline-offset: 2px; }
+.lecture-annotation-mark {
+  padding: .04em 0;
+  background: #f5d8677d;
+  border-bottom: 2px solid #d4a617;
+  cursor: pointer;
+}
+.lecture-annotation-mark.annotation-flash,
+.saved-highlight.annotation-flash { animation: annotation-flash 1.4s ease-out; }
+@keyframes annotation-flash {
+  0%, 45% { box-shadow: 0 0 0 5px #e29e2999; }
+  100% { box-shadow: none; }
+}
+@media (min-width: 900px) {
+  body.annotation-panel-open .pdf-pages { padding-right: 396px; }
+  body.annotation-panel-open :is(.study-head, .study-split) { margin-right: 380px; }
+}
+@media (min-width: 1100px) {
+  .study-page.annotation-reading-mode .annotation-panel {
+    display: grid;
+    grid-template-columns: minmax(250px, 32%) minmax(0, 1fr);
+    grid-template-rows: 3.8rem 1.8rem auto minmax(0, 1fr);
+    width: min(780px, 70vw);
+  }
+  .study-page.annotation-reading-mode .annotation-panel-head,
+  .study-page.annotation-reading-mode .annotation-panel-status,
+  .study-page.annotation-reading-mode .annotation-panel-filters { grid-column: 1 / -1; }
+  .study-page.annotation-reading-mode .annotation-panel-list {
+    grid-column: 1;
+    grid-row: 4;
+    height: auto;
+    min-height: 0;
+    border-right: 1px solid #d8dcdd;
+    border-bottom: 0;
+  }
+  .study-page.annotation-reading-mode .annotation-panel-detail {
+    grid-column: 2;
+    grid-row: 4;
+    height: auto;
+    min-height: 0;
+    padding: 1.15rem 1.3rem 2rem;
+  }
+  .study-page.annotation-reading-mode .annotation-md { font-size: .94rem; line-height: 1.7; }
+  .study-page.annotation-panel-open.annotation-reading-mode :is(.study-head, .study-split) {
+    margin-right: min(780px, 70vw);
+  }
+}
+@media (min-width: 900px) and (max-width: 1099px) {
+  .study-page.annotation-reading-mode .annotation-panel { width: min(680px, 96vw); }
+  .study-page.annotation-panel-open.annotation-reading-mode :is(.study-head, .study-split) { margin-right: 0; }
+}
+@media (max-width: 640px) {
+  .annotation-toggle { right: .75rem; top: 3.8rem; }
+  .study-page .annotation-toggle { position: static; }
+  .annotation-panel-detail { padding-bottom: 5rem; }
+  .annotation-panel-filters { grid-template-columns: minmax(0, 1fr) 7rem; }
+  .study-page [data-panel-action="reading"] { display: none; }
+  .annotation-float { display: none !important; }
+}

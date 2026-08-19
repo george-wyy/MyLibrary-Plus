@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Read · {{ paper.title }}</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/static/reader.css?v=6">
+  <link rel="stylesheet" href="/static/pdfview.css?v=6">
+  <link rel="stylesheet" href="/static/annotations.css?v=18">
+  <link rel="stylesheet" href="/static/vendor/katex/katex.min.css?v=1">
+</head>
+<body data-paper-id="{{ paper.id }}" data-pdf-url="/paper/{{ paper.id }}/pdf">
+  <div id="reader-status" class="reader-status" role="status">Loading PDF…</div>
+  <main id="pdf-pages" class="pdf-pages" aria-label="PDF document"></main>
+  <div class="reader-actions" aria-label="Paper actions">
+    <button type="button" id="open-chatgpt" data-download-url="/paper/{{ paper.id }}/download" title="Download PDF and open a new ChatGPT conversation" aria-label="Download PDF and open ChatGPT">
+      <img src="/static/openai-blossom.svg" alt="">
+    </button>
+  </div>
+  <div id="zoom-controls" class="zoom-controls" aria-label="PDF zoom">
+    <button type="button" data-zoom="out" title="Zoom out" aria-label="Zoom out">−</button>
+    <button type="button" id="zoom-display" data-zoom="reset" title="Fit width">100%</button>
+    <button type="button" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button>
+  </div>
+  <button type="button" id="page-layout-toggle" class="pdf-page-layout-toggle" title="双页显示" aria-label="双页显示" aria-pressed="false">⊞ 双页</button>
+  <button type="button" id="toc-toggle" class="pdf-toc-toggle" title="Outline" aria-label="Outline" hidden>☰ 目录</button>
+  <div id="pdf-toc" class="pdf-toc" hidden aria-label="PDF outline">
+    <div class="pdf-toc-head"><span>目录</span><button type="button" class="pdf-toc-close" aria-label="关闭目录">×</button></div>
+    <div class="pdf-toc-body"></div>
+  </div>
+  <script id="initial-annotations" type="application/json">{{ annotations|tojson }}</script>
+  <script src="/static/vendor/marked/marked.min.js"></script>
+  <script src="/static/vendor/katex/katex.min.js?v=1"></script>
+  <script type="module" src="/static/reader.js?v=44"></script>
+</body>
+</html>

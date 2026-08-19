@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Choose a paper · MyLibrary{% endblock %}
+{% block content %}
+<h1>Choose the matching paper</h1>
+<p>Several results may match “{{ query }}”.</p>
+<div class="papers">
+{% for candidate in candidates %}
+  <form action="/add/selected" method="post" class="paper candidate">
+    <input type="hidden" name="query" value="{{ query }}">
+    <input type="hidden" name="candidate_index" value="{{ loop.index0 }}">
+    <input type="hidden" name="no_pdf" value="{{ 'true' if no_pdf else 'false' }}">
+    <strong>{{ candidate.title }}</strong>
+    <span>{{ candidate.authors|map(attribute='name')|join(', ') or 'Unknown authors' }}</span>
+    <span>{{ candidate.year or 'No year' }} · {{ candidate.sources|join(', ') }} · confidence {{ '%.0f'|format(candidate.score * 100) }}%</span>
+    <button type="submit">Choose this paper</button>
+  </form>
+{% endfor %}
+</div>
+{% endblock %}

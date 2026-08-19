@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Wiki · Workflow · MyLibrary{% endblock %}
+{% block content %}
+<article class="wiki">
+  <header class="wiki-head">
+    <h1>MyLibrary workflow wiki</h1>
+    <p class="wiki-sub">Where this tool sits in a paper workflow, and the four routines it is built around. Diagrams render locally with Mermaid — no network needed.</p>
+  </header>
+
+  <section class="wiki-section">
+    <h2>Feature status</h2>
+    <ul class="status-list">
+      <li><span class="badge ok">ready</span> Local install, everything under <code>data/</code> in this clone (<code>./mylibrary run</code>)</li>
+      <li><span class="badge ok">ready</span> Add by title / URL / DOI / arXiv ID, or bulk-import a Zotero collection offline</li>
+      <li><span class="badge ok">ready</span> Timeline cards with a figure carousel (swipe / arrows / dots / click for lightbox)</li>
+      <li><span class="badge ok">ready</span> PDF reader and study view with shared text annotations, tags, and a floating reading window</li>
+      <li><span class="badge ok">ready</span> Annotation context API for external AI agents (<code>/api/papers/{id}/annotations/context</code>)</li>
+      <li><span class="badge todo">optional</span> Telegram bot for adding papers from a phone (needs a BotFather token)</li>
+      <li><span class="badge todo">planned</span> Region-selection annotations on figures inside the PDF reader</li>
+    </ul>
+  </section>
+
+  <section class="wiki-section">
+    <h2>1 · Position: which layer of the literature stack</h2>
+    <p>MyLibrary does not replace a reference manager. It fills the layer a reference manager is weakest at: coming back to papers, looking at their figures, and re-reading them. Zotero stays the storage and BibTeX backend.</p>
+    <pre class="mermaid">
+flowchart LR
+  A1["arXiv / OpenReview"]
+  A2["Daily feeds<br/>(discovery layer)"]
+  Z[("Zotero<br/>storage + BibTeX backend")]
+  M[["MyLibrary<br/>revisit · figures · annotation layer"]]
+  W["Writing / submission"]
+  OB[("Notes vault<br/>Obsidian, etc.")]
+  A1 --> Z
+  A2 -->|"save what looks interesting"| Z
+  Z -->|"zotero_import.py, offline bulk import"| M
+  Z -->|"insert citations"| W
+  M -.->|"once understood, write it up"| OB
+    </pre>
+  </section>
+
+  <section class="wiki-section">
+    <h2>2 · Routine A — getting papers in (three entry points)</h2>
+    <p>All three entry points land in the same timeline. Paywalled papers reuse the PDF already stored by Zotero, so they get figures too.</p>
+    <pre class="mermaid">
+flowchart TD
+  T["Phone · Telegram bot<br/>send a URL / DOI / arXiv ID / title"]
+  C["Terminal · CLI<br/>./mylibrary add ..."]
+  ZI["Zotero bulk import<br/>zotero_import.py -c 'Collection'"]
+  P["Fetch metadata · download PDF · extract figures"]
+  PL["Read Zotero metadata offline<br/>reuse local PDF · extract figures"]
+  TL[("Timeline<br/>SQLite + files/ + thumbnails/")]
+  T --> P
+  C --> P
+  ZI --> PL
+  P --> TL
+  PL --> TL
+    </pre>
+  </section>
+
+  <section class="wiki-section">
+    <h2>3 · Routine B — browsing and revisiting</h2>
+    <p>The core move: run into your own saved papers again, the way you would scroll a feed.</p>
+    <pre class="mermaid">
+flowchart LR
+  O["Open 127.0.0.1:8765"]
+  TL["Timeline<br/>newest first"]
+  CR["Figure carousel on each card<br/>swipe / arrows / dots"]
+  LB["Lightbox for the full figure"]
+  MK["Mark read / unsure / liked<br/>+ a one-line verdict"]
+  TG["Filter by tag"]
+  O --> TL
+  TL --> CR
+  CR -->|"click a figure"| LB
+  CR --> MK
+  TL --> TG
+    </pre>
+  </section>
+
+  <section class="wiki-section">
+    <h2>4 · Routine C — reading and annotating</h2>
+    <p>Use the built-in reader when the highlights should end up in the library; open the file in a native reader when you just want smooth scrolling.</p>
+    <pre class="mermaid">
+flowchart TD
+  P["Open a paper"]
+  R{"How to read it?"}
+  WR["Built-in reader (pdf.js)"]
+  LO["Native reader<br/>./mylibrary open"]
+  H1["Text annotations ✓ stored in the library"]
+  H2["Study view: PDF + notes side by side<br/>annotations shared across both"]
+  H3["Region selection on figures (planned)"]
+  P --> R
+  R -->|"keep the annotations"| WR
+  R -->|"just read"| LO
+  WR --> H1
+  WR --> H2
+  WR --> H3
+  class H3 todo
+  classDef todo stroke-dasharray:5 5,fill:#fff7e6,stroke:#c98a00,color:#7a5200;
+    </pre>
+  </section>
+
+  <section class="wiki-section">
+    <h2>5 · Routine D — handing context to an AI agent</h2>
+    <p>Annotations are not a dead end. A stable JSON endpoint exposes the thread for an external agent, which can reply back into it as <code>assistant</code>.</p>
+    <pre class="mermaid">
+sequenceDiagram
+  participant R as Reader
+  participant M as MyLibrary
+  participant A as External agent
+  R->>M: select text → 添加批注 (add annotation)
+  R->>M: 复制给 AI (copy context)
+  M-->>R: structured JSON thread
+  A->>M: GET /api/papers/{id}/annotations/context
+  M-->>A: paper + annotations + instructions
+  A->>M: POST .../annotations/{id}/replies (role=assistant)
+  M-->>R: reply appears in the sidebar thread
+    </pre>
+  </section>
+
+  <section class="wiki-section">
+    <h2>6 · Data and storage (all inside this clone)</h2>
+    <pre class="mermaid">
+flowchart LR
+  ADD["add / import"]
+  DB[("library.sqlite3<br/>metadata · tags · notes · annotations · status")]
+  F["files/ content-addressed PDFs<br/>(sha256 names)"]
+  TH["thumbnails/<br/>page-1 · figure-1..3"]
+  LEC["lectures/ · notes/<br/>Markdown study notes"]
+  WEB["Web UI :8765"]
+  ADD --> DB
+  ADD --> F
+  F --> TH
+  DB --> WEB
+  F --> WEB
+  TH --> WEB
+  LEC --> WEB
+    </pre>
+  </section>
+
+  <section class="wiki-section wiki-meta">
+    <h2>Maintenance notes</h2>
+    <ul>
+      <li>This page lives in <code>src/mylibrary/web/templates/wiki.html</code> — edit it to describe your own workflow.</li>
+      <li>Mermaid is vendored at <code>static/vendor/mermaid/mermaid.min.js</code>, so the page works offline.</li>
+      <li>Zotero bulk import is <code>zotero_import.py</code>; run it with <code>--list</code> to see your collections.</li>
+      <li>The web UI has no authentication and binds to <code>127.0.0.1</code>. Keep it that way, or put it behind an authenticated proxy.</li>
+    </ul>
+  </section>
+</article>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/mermaid/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "neutral",
+    securityLevel: "loose",
+    flowchart: { htmlLabels: true, curve: "basis", useMaxWidth: true },
+    sequence: { useMaxWidth: true }
+  });
+</script>
+{% endblock %}

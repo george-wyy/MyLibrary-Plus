@@ -1,0 +1,19 @@
+/* Page chrome for the full-page reader. The viewer itself is styled by
+   pdfview.css, which the study split view loads as well. */
+:root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #273036; background: #dfe2e3; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+.reader-status { position: fixed; top: .65rem; left: 50%; z-index: 20; max-width: calc(100vw - 2rem); padding: .35rem .7rem; transform: translateX(-50%); overflow: hidden; color: #566268; background: #f7f7f4e8; border: 1px solid #ccd1d2; border-radius: 999px; box-shadow: 0 2px 8px #0002; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; opacity: .88; }
+.reader-status[hidden] { display: none; }
+.reader-actions { position: fixed; top: .75rem; right: .75rem; z-index: 30; display: flex; overflow: hidden; background: #f7f7f4ed; border: 1px solid #c5cbcd; border-radius: 8px; box-shadow: 0 2px 10px #0003; }
+.reader-actions :is(a, button) { display: grid; place-items: center; width: 2.55rem; height: 2.55rem; padding: 0; color: #47565d; background: transparent; border: 0; border-right: 1px solid #d5d9da; cursor: pointer; }
+.reader-actions :is(a, button):last-child { border-right: 0; }
+.reader-actions :is(a, button):hover { background: #e9eceb; }
+.reader-actions svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.reader-actions img { width: 1.35rem; height: 1.35rem; }
+.annotation-menu { position: fixed; z-index: 50; display: grid; gap: .35rem; width: min(18rem, calc(100vw - 1.5rem)); padding: .55rem; background: #f8f8f5f5; border: 1px solid #bbc2c5; border-radius: 8px; box-shadow: 0 5px 20px #0004; }
+.annotation-menu[hidden] { display: none; }
+.annotation-menu span { display: block; max-height: 3.5rem; overflow: hidden; padding: .25rem .35rem .45rem; color: #5d666b; font-size: .78rem; line-height: 1.35; }
+.annotation-menu button { padding: .48rem .65rem; color: #344047; background: #eef0ef; border: 1px solid #d2d6d6; border-radius: 5px; text-align: left; cursor: pointer; }
+.annotation-menu button:hover { background: #e4e7e6; }
+.annotation-menu button.remove { color: #98483f; }

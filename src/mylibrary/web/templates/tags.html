@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Tags · MyLibrary{% endblock %}
+{% block content %}
+<div class="library-heading"><h1>Tags</h1><span>{{ tags|length }} tags</span></div>
+{% if tags %}
+<div class="tag-index">
+  {% for tag, count in tags %}
+  <a href="/tags/{{ tag.id }}" style="{{ tag.name|tag_style }}"><strong>#{{ tag.name }}</strong><span>{{ count }} paper{{ '' if count == 1 else 's' }}</span></a>
+  {% endfor %}
+</div>
+{% else %}<p class="empty">No tags yet. Add one from a paper’s detail page.</p>{% endif %}
+{% endblock %}

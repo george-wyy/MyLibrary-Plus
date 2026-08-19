@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+executable="$project_dir/.venv/bin/mylibrary"
+
+if [[ ! -x "$executable" ]]; then
+  echo "MyLibrary is not installed in .venv." >&2
+  echo "Set it up with: python3 -m venv .venv && .venv/bin/pip install -e ." >&2
+  exit 1
+fi
+
+exec "$executable" "$@"

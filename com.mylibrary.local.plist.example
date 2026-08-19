@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Example launchd job: runs `mylibrary run` at login and keeps it alive.
+
+  Copy this file to com.mylibrary.local.plist, replace every
+  /ABSOLUTE/PATH/TO/MyLibrary below with your actual checkout path, then:
+    cp com.mylibrary.local.plist.example com.mylibrary.local.plist
+    # edit the paths
+    launchctl load com.mylibrary.local.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.mylibrary.local</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/ABSOLUTE/PATH/TO/MyLibrary/.venv/bin/mylibrary</string>
+        <string>run</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/ABSOLUTE/PATH/TO/MyLibrary</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/ABSOLUTE/PATH/TO/MyLibrary/.venv/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/ABSOLUTE/PATH/TO/MyLibrary/data/logs/launchd.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/ABSOLUTE/PATH/TO/MyLibrary/data/logs/launchd.err.log</string>
+</dict>
+</plist>

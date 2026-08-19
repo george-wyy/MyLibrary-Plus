@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}MyLibrary{% endblock %}</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css?v=20">
+  <script src="/static/app.js?v=17" defer></script>
+</head>
+<body>
+  <header><a href="/">MyLibrary</a><span>Local paper library</span><nav><a href="/">Timeline</a><a href="/tags">Tags</a><a href="/add">Add paper</a><a href="/wiki">Wiki</a></nav></header>
+  <main>
+    {% if message %}<div class="notice">{{ message }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <dialog class="figure-lightbox" data-figure-lightbox>
+    <div class="lightbox-stage" data-lightbox-stage>
+      <img alt="Large paper figure" data-lightbox-image>
+    </div>
+    <button type="button" class="lightbox-close" data-close-lightbox title="Close" aria-label="Close large figure">×</button>
+    <button type="button" class="lightbox-nav prev" data-lightbox-prev title="Previous figure" aria-label="Previous figure">‹</button>
+    <button type="button" class="lightbox-nav next" data-lightbox-next title="Next figure" aria-label="Next figure">›</button>
+    <div class="lightbox-bar">
+      <span class="lightbox-counter" data-lightbox-counter></span>
+      <span class="lightbox-label" data-lightbox-label></span>
+      <span class="lightbox-strip" data-lightbox-strip></span>
+    </div>
+  </dialog>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

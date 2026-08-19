@@ -1,0 +1,17 @@
+data/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+api_keys/
+tmp/
+.worktrees/
+
+# Personal launchd config / one-off data-import scripts - see the .example
+# plist and zotero_import.py for the generic, shareable versions.
+com.mylibrary.local.plist
+add_*.py
+zotero_import_*.py

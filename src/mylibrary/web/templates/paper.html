@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ paper.title }} · MyLibrary{% endblock %}
+{% block content %}
+<article class="detail">
+  <a class="back-link" href="/">← Timeline</a>
+  <header class="paper-heading">
+    <div>
+      <h1>{{ paper.title }}</h1>
+      <p class="authors">{% for authorship in paper.authors %}{{ authorship.author.name }}{% if not loop.last %}, {% endif %}{% else %}Unknown authors{% endfor %}{% if paper.year %} <span>({{ paper.year }})</span>{% endif %}</p>
+    </div>
+    {% if paper.is_done %}<span class="done-mark static" title="Already read">✓</span>{% endif %}
+  </header>
+
+  <div class="detail-layout">
+    <div class="detail-main">
+      {% if paper.files %}
+      <section class="paper-preview" data-paper-preview>
+        <div class="preview-header">
+          <h2>Paper preview</h2>
+          <div class="preview-switch" role="group" aria-label="Paper preview image">
+            {% for source in available_thumbnail_sources %}
+            <span class="preview-choice">
+              <button type="button" class="preview-view {{ 'active' if loop.first else '' }}" data-preview-name="{{ source }}" data-preview-source="/paper/{{ paper.id }}/thumbnail?source={{ source }}&size=card&v={{ thumbnail_version }}" data-preview-full="/paper/{{ paper.id }}/thumbnail?source={{ source }}&v={{ thumbnail_version }}">{{ source|replace('-', ' ')|title }}</button>
+              <button type="button" class="preview-default {{ 'selected' if source == paper.thumbnail_source else '' }}" data-default-source="{{ source }}" data-default-url="/paper/{{ paper.id }}/thumbnail-source" title="{{ 'Timeline default' if source == paper.thumbnail_source else 'Use as timeline default' }}" aria-label="{{ 'Timeline default' if source == paper.thumbnail_source else 'Use ' ~ source|replace('-', ' ') ~ ' as timeline default' }}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>
+              </button>
+            </span>
+            {% endfor %}
+          </div>
+        </div>
+        <a href="/paper/{{ paper.id }}/read" target="_blank" title="Open in MyLibrary reader" data-preview-link data-reader-url="/paper/{{ paper.id }}/read" data-preview-mode="page-1">
+          <img src="/paper/{{ paper.id }}/thumbnail?source=page-1&size=card&v={{ thumbnail_version }}" alt="Page 1 preview for {{ paper.title }}">
+        </a>
+      </section>
+      {% endif %}
+      <section class="notes-section" id="notes">
+        <h2>Notes</h2>
+        <form action="/paper/{{ paper.id }}/notes" method="post">
+          <textarea name="notes" rows="6" placeholder="Add your notes about this paper…">{{ paper.notes or '' }}</textarea>
+          <button>Save notes</button>
+        </form>
+      </section>
+    </div>
+
+    <aside class="detail-sidebar">
+      <div class="paper-actions">
+        {% if paper.files %}<a class="button primary-action" href="/paper/{{ paper.id }}/pdf" target="_blank">Open PDF</a>
+        {% else %}<form action="/paper/{{ paper.id }}/fetch-pdf" method="post"><button class="primary-action">Find PDF</button></form>{% endif %}
+        {% if has_lecture %}<a class="button" href="/paper/{{ paper.id }}/study" target="_blank">📖 对照读讲义</a>{% endif %}
+        <form action="/paper/{{ paper.id }}/done" method="post">
+          <input type="hidden" name="done" value="{{ 'false' if paper.is_done else 'true' }}">
+          <button class="secondary-button {{ 'done-button' if paper.is_done else '' }}">{{ '✓ Read' if paper.is_done else 'Mark as read' }}</button>
+        </form>
+      </div>
+
+      <section class="metadata-card">
+        <h2>Paper details</h2>
+        <dl>
+          {% if paper.publication_date %}<dt>Published</dt><dd>{{ paper.publication_date }}</dd>
+          {% elif paper.year %}<dt>Published</dt><dd>{{ paper.year }}</dd>{% endif %}
+          {% if paper.venue %}<dt>Venue</dt><dd>{{ paper.venue }}</dd>{% endif %}
+          {% if paper.doi %}<dt>DOI</dt><dd>{{ paper.doi }}</dd>{% endif %}
+          {% if paper.arxiv_id %}<dt>arXiv</dt><dd><a href="https://arxiv.org/abs/{{ paper.arxiv_id }}" target="_blank" rel="noreferrer">{{ paper.arxiv_id }}</a></dd>{% endif %}
+          {% if paper.citations %}<dt>Citations</dt><dd><strong>{{ paper.citations|citation_max }}</strong></dd>{% endif %}
+          <dt>Added</dt><dd><ol class="add-history">{% for event in paper.add_events|reverse %}<li><time datetime="{{ event.added_at.isoformat() }}">{{ (event.added_at|local_time).strftime('%b %-d, %Y at %H:%M') }}</time></li>{% endfor %}</ol></dd>
+          <dt>Source</dt><dd>{{ paper.metadata_source|replace('_', ' ')|title }}</dd>
+        </dl>
+        {% if paper.citations %}
+        <div class="citation-sources">
+          {% for citation in paper.citations %}<span><strong>{{ citation.count }}</strong> via {{ citation.source|replace('_', ' ')|title }} <small>{{ citation.retrieved_at.strftime('%Y-%m-%d') }}</small></span>{% endfor %}
+        </div>
+        {% endif %}
+        {% if paper.updated_at != paper.created_at %}<p class="updated-time">Last updated {{ (paper.updated_at|local_time).strftime('%b %-d, %Y') }}</p>{% endif %}
+      </section>
+
+      <section class="tag-editor">
+        <h2>Tags</h2>
+        <div class="paper-tags">
+          {% for tag in paper.tags %}
+            <span class="tag editable" style="{{ tag.name|tag_style }}"><a href="/tags/{{ tag.id }}">#{{ tag.name }}</a><form action="/paper/{{ paper.id }}/tags/{{ tag.id }}/remove" method="post"><button title="Remove tag" aria-label="Remove {{ tag.name }} tag">×</button></form></span>
+          {% endfor %}
+        </div>
+        <form class="tag-form" action="/paper/{{ paper.id }}/tags" method="post"><input name="name" maxlength="100" required placeholder="Add tag"><button>Add</button></form>
+      </section>
+
+      {% if paper.canonical_url %}<a class="original-link" href="{{ paper.canonical_url }}" target="_blank" rel="noreferrer">View original record ↗</a>{% endif %}
+    </aside>
+  </div>
+</article>
+{% endblock %}

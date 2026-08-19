@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Add a paper · MyLibrary{% endblock %}
+{% block content %}
+<section class="panel add-page">
+  <h1>Add a paper</h1>
+  <p>Enter a paper title, URL, DOI, arXiv ID, or PMID. Metadata, an open PDF, and thumbnails will be collected automatically.</p>
+  <form action="/add" method="post" class="add-form">
+    <input name="query" required placeholder="Title, URL, DOI, arXiv ID, or PMID" autofocus>
+    <button type="submit">Add</button>
+    <label><input type="checkbox" name="no_pdf" value="true"> Metadata only</label>
+  </form>
+</section>
+{% endblock %}
