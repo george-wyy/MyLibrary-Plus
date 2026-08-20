@@ -5,13 +5,15 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+.DS_Store
 
 api_keys/
 tmp/
 .worktrees/
 
-# Personal launchd config / one-off data-import scripts - see the .example
-# plist and zotero_import.py for the generic, shareable versions.
+# Local launchd job and one-off import scripts stay out of git.
+# See com.mylibrary.local.plist.example and zotero_import.py for the
+# generic, shareable versions.
 com.mylibrary.local.plist
 add_*.py
 zotero_import_*.py
