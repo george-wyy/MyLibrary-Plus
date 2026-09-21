@@ -48,7 +48,8 @@ flowchart LR
 |---|---|
 | **Figure-first timeline** | Every card carries page 1 plus figures 1–3 in a swipeable carousel, with a full-screen lightbox. Filter by tag, by "has study notes", or search. |
 | **Annotations in one place** | Select text in the PDF *or* in your Markdown study notes and annotate it. One sidebar holds both, plus a draggable floating window for reading a single thread, per-annotation tags, timestamps, edits, and replies. |
-| **Study view (讲义)** | PDF on the left, your Markdown notes on the right — with KaTeX math, embedded figures, callout boxes, `[[wikilinks]]` to shared concept notes, and backlinks. |
+| **Study view (讲义)** | PDF on the left, your Markdown notes on the right — with KaTeX math, embedded figures, callout boxes, `[[wikilinks]]` to shared concept notes, and backlinks. A paper can carry several study notes (a primer and a chapter-by-chapter deep dive, say) behind a picker, and a note can embed its own interactive HTML/JS components in a ` ```widget ` fence. |
+| **Night reading** | 夜览模式 — a system / light / dark toggle on every page, applied before first paint so there is no flash, with dark palettes across the timeline, reader, study view and annotation panels. |
 | **Offline Zotero import** | `zotero_import.py -c "Collection"` reads Zotero's SQLite directly and reuses the PDFs already on disk, so paywalled papers keep their figures. Nothing is downloaded. |
 | **Agent-ready annotations** | `GET /api/papers/{id}/annotations/context` returns the paper, its annotations and instructions as JSON; an agent replies into the thread as `role: "assistant"`. |
 | **Add from anywhere** | CLI by title / URL / DOI / arXiv ID / PMID, or a private Telegram bot for adding papers from your phone. |
@@ -56,9 +57,10 @@ flowchart LR
 
 ### Reading and annotating
 
-Select text in the PDF and write a note. The sidebar holds every annotation for the
-paper — from the PDF *and* from your study notes — with tags, timestamps, edits and
-replies. `复制给 AI` copies the whole thread as structured context.
+Select text in the PDF and write a note — or select a whole figure to annotate it as one
+region. The sidebar holds every annotation for the paper — from the PDF *and* from your
+study notes — with tags, timestamps, edits and replies, plus favorite / unread / waiting
+for the AI filters. `复制给 AI` copies the whole thread as structured context.
 
 ![The PDF reader with the annotation sidebar open](docs/images/reader.png)
 
@@ -66,6 +68,23 @@ replies. `复制给 AI` copies the whole thread as structured context.
 
 Your Markdown study note renders beside the PDF: KaTeX math, embedded figures,
 callout boxes, and `[[wikilinks]]` into shared concept notes that show their backlinks.
+
+A paper can have several study notes: the main one is `data/lectures/<paper_id>.md`,
+and extras are `<paper_id>__<slug>.md` (`__priors`, `__chapter-3`, …), picked from a
+dropdown next to the title. A note can also carry its own interactive components — put
+the file under `data/lectures/assets/<paper_id>/` and point at it from a fenced block:
+
+````markdown
+```widget
+src: dragcal-explorer.html#step=gating
+height: 640
+title: Interactive: the four gates
+```
+````
+
+`study.js` renders that as an iframe on the same origin; the server only serves the
+asset types on its allow-list (html/js/css/json/csv/images) from inside that paper's
+asset folder, so `..` and absolute paths cannot escape it.
 
 ![The study view: PDF on the left, rendered study notes on the right](docs/images/study.png)
 
@@ -167,7 +186,8 @@ data/
 ├── library.sqlite3   # metadata, tags, notes, annotations, reading status
 ├── files/            # content-addressed PDFs (sha256)
 ├── thumbnails/       # page-1 and figure-1..3 previews
-├── lectures/         # <paper_id>.md study notes
+├── lectures/         # <paper_id>.md study notes; extras as <paper_id>__<slug>.md
+│                     # + lectures/assets/<paper_id>/ for widget components
 ├── notes/            # <slug>.md shared concept notes ([[wikilinks]] target)
 ├── cache/  logs/  tmp/
 ```
@@ -183,8 +203,12 @@ Telegram bot, systemd service. This fork adds the reading layer on top:
 
 - unified annotations across PDF and Markdown study notes, with tags, timestamps,
   replies, filters and a draggable floating reading window
-- the study view: PDF + notes side by side, KaTeX math, `[[wikilinks]]`, backlinks
+- figure-region annotations in the PDF reader (drag a box over a figure), not just text
+- the study view: PDF + notes side by side (or stacked), KaTeX math, `[[wikilinks]]`,
+  backlinks, several notes per paper behind a picker, and embeddable interactive widgets
+- night reading mode (system / light / dark) applied before first paint
 - figure carousel and lightbox on timeline cards, plus a "has study notes" filter
+- attachments: a paper with a supplement gets a file picker in the reader and study view
 - offline Zotero collection import
 - the annotation-context API for external agents
 - an in-app workflow wiki at `/wiki`
@@ -201,7 +225,7 @@ Telegram credentials, if used, live in `api_keys/` and are git-ignored.
 
 ```bash
 .venv/bin/pip install -e '.[dev]'
-.venv/bin/pytest -q                      # 70 tests
+.venv/bin/pytest -q                      # 71 tests
 for t in tests/*.mjs; do node "$t"; done  # front-end unit tests
 ```
 

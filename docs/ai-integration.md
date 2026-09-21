@@ -54,9 +54,16 @@ Creates a new annotation. JSON body:
 
 ### `PATCH /api/papers/{paper_id}/annotations/{annotation_id}`
 
-Partial update. Body may include any of `note`, `color`, `tags` — omitted fields are
-left unchanged. `400` on validation error, `404` if the annotation (or its paper
-match) is not found, `200` → the updated annotation JSON.
+Partial update. Body may include any of `note`, `color`, `tags`, `is_favorite` —
+omitted fields are left unchanged. `400` on validation error, `404` if the annotation
+(or its paper match) is not found, `200` → the updated annotation JSON.
+
+### `POST /api/papers/{paper_id}/annotations/{annotation_id}/viewed`
+
+Records that the reader opened this thread: stamps `last_viewed_at` (server time) so
+the panel can tell a reply the AI posted after your last look (unread) from one you
+have already read. Takes no body; `200` → the updated annotation JSON, `404` if not
+found.
 
 ### `POST /api/papers/{paper_id}/annotations/{annotation_id}/replies`
 
@@ -88,6 +95,8 @@ Produced by `_annotation_json` in `web/app.py`:
   "color": "yellow",
   "note": "Core claim of the paper — check against the ablations in §6.",
   "tags": ["core-claim"],
+  "is_favorite": false,
+  "last_viewed_at": "2026-08-19T09:41:52+00:00",
   "created_at": "2026-08-19T02:14:07+00:00",
   "updated_at": "2026-08-19T02:14:07+00:00",
   "replies": []
@@ -95,9 +104,13 @@ Produced by `_annotation_json` in `web/app.py`:
 ```
 
 `replies[]` entries: `{"id", "annotation_id", "role", "content", "created_at"}`.
-Timestamps are ISO 8601 UTC. For `lecture`/`note` annotations, `anchor` also carries
-`start`/`end`/`prefix`/`suffix` (and `note_slug` for `note`); `rects` is `[]` and
-`page_number` is `0`.
+Timestamps are ISO 8601 UTC. `is_favorite` is the reader's own star (independent of
+your replies), and `last_viewed_at` stays `null` until the thread is first opened —
+compare it with a reply's `created_at` to tell whether the reader has seen it. For
+`lecture`/`note` annotations, `anchor` also carries `start`/`end`/`prefix`/`suffix`
+(plus `note_slug` for `note`, and `lecture_slug` when the highlight was made in a
+paper's *extra* lecture rather than its main one); `rects` is `[]` and `page_number`
+is `0`.
 
 ## Example: reading and replying to context
 

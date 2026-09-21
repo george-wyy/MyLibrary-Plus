@@ -3,18 +3,22 @@ import {
   annotationCandidateTabLabels,
   chooseFloatModeActivation,
   chooseNextAnnotationCandidate,
+  clampAnnotationFloatFontSize,
   isForbiddenAnnotationAttribute,
   normalizeCjkStrongBoundaries,
+  readAnnotationFloatFontSize,
   readAnnotationFloatMode,
   reconcileFloatingAnnotationSelection,
   scrollAnnotationIntoView,
   setAnnotationReadingMode,
   sortAnnotationCandidates,
   shouldAdoptDeletedAnnotationSurvivor,
+  writeAnnotationFloatFontSize,
   writeAnnotationFloatMode,
-} from "/static/annotation-interaction.mjs?v=6";
+} from "/static/annotation-interaction.mjs?v=8";
 import {
   collectAnnotationTags,
+  computeAnnotationStatus,
   formatAnnotationDateTime,
   formatAnnotationTime,
   isActiveAnnotationTagEdit,
@@ -22,11 +26,11 @@ import {
   parseAnnotationTags,
   reconcileAnnotationPanelSelection,
   resolveAnnotationMutationUi,
-} from "/static/annotation-metadata.mjs?v=4";
+} from "/static/annotation-metadata.mjs?v=5";
 import { lockAnnotationForm } from "/static/annotation-form-state.mjs?v=1";
-import { ANNOTATION_COLORS } from "/static/annotation-colors.mjs?v=1";
+import { ANNOTATION_COLORS, annotationMarkColor } from "/static/annotation-colors.mjs?v=1";
 import { createFloatingWindow } from "/static/floating-window.mjs?v=2";
-import { plainMarkdownPreview, renderMathTokens, tokenizeMarkdownMath } from "/static/math-markdown.mjs?v=2";
+import { plainMarkdownPreview, renderMathTokens, tokenizeMarkdownMath } from "/static/math-markdown.mjs?v=4";
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -87,6 +91,13 @@ function annotationTagNames(annotation) {
   return Array.isArray(annotation?.tags)
     ? annotation.tags.map((tag) => typeof tag === "string" ? tag : tag?.name).filter(Boolean)
     : [];
+}
+
+// Solid swatch color for an annotation's color key, falling back to the same
+// yellow that the list item / blockquote used to be hardcoded to when the
+// color is missing or unrecognized (e.g. older annotations predating colors).
+function annotationSwatchColor(key) {
+  return ANNOTATION_COLORS.find((entry) => entry.key === key)?.swatch || "#e3bb3f";
 }
 
 function renderTagChips(tags, limit = Infinity) {
@@ -167,6 +178,8 @@ export class AnnotationPanel {
     this.undoExpireTimer = null;
     this.query = "";
     this.selectedTag = "";
+    this.selectedStatus = "";
+    this.viewedInFlight = new Set();
     this.mount();
     this.render();
   }
@@ -175,7 +188,7 @@ export class AnnotationPanel {
     this.toggle = element("button", "annotation-toggle");
     this.toggle.type = "button";
     this.toggle.setAttribute("aria-label", "打开批注");
-    this.toggle.innerHTML = '<span aria-hidden="true">批注</span><b>0</b>';
+    this.toggle.innerHTML = '<span aria-hidden="true">批注</span><b>0</b><i class="annotation-toggle-alert" aria-hidden="true" hidden></i>';
 
     this.panel = element("aside", "annotation-panel");
     this.panel.hidden = true;
@@ -210,6 +223,11 @@ export class AnnotationPanel {
             <option value="">全部标签</option>
           </select>
         </label>
+        <div class="annotation-status-filters" role="group" aria-label="按状态筛选">
+          <button type="button" data-status-filter="unread" aria-pressed="false" title="AI 有新回复但我还没看">🔴 未读回复</button>
+          <button type="button" data-status-filter="pending" aria-pressed="false" title="我加了批注,AI 还没回应">⏳ 待处理</button>
+          <button type="button" data-status-filter="favorite" aria-pressed="false" title="我收藏的批注">★ 已收藏</button>
+        </div>
       </div>
       <div class="annotation-panel-list" aria-label="批注列表"></div>
       <div class="annotation-panel-detail"></div>
@@ -222,6 +240,8 @@ export class AnnotationPanel {
     this.floatButton = this.panel.querySelector('[data-panel-action="float"]');
     this.queryInput = this.panel.querySelector("[data-annotation-query]");
     this.tagFilter = this.panel.querySelector("[data-annotation-tag-filter]");
+    this.statusFilterButtons = [...this.panel.querySelectorAll("[data-status-filter]")];
+    this.toggleAlert = this.toggle.querySelector(".annotation-toggle-alert");
 
     this.toggle.addEventListener("click", () => this.open());
     this.panel.addEventListener("keydown", (event) => this.handleKeydown(event));
@@ -283,11 +303,18 @@ export class AnnotationPanel {
     this.float = element("section", "annotation-float");
     this.float.hidden = true;
     this.float.setAttribute("aria-label", "当前批注浮窗");
-    this.float.innerHTML = `<header class="annotation-float-head"><strong>当前批注</strong><div class="annotation-float-head-actions"><button type="button" data-float-action="sidebar">在侧栏打开</button><button type="button" data-float-action="close" aria-label="关闭批注浮窗">×</button></div></header><div class="annotation-float-tabs" role="tablist" aria-label="同位置批注"></div><div class="annotation-float-content" role="tabpanel"></div>`;
+    this.float.innerHTML = `<header class="annotation-float-head"><strong>当前批注</strong><div class="annotation-float-head-actions"><button type="button" data-float-action="font-out" title="缩小字号" aria-label="缩小字号">A−</button><button type="button" data-float-action="font-in" title="放大字号" aria-label="放大字号">A+</button><button type="button" data-float-action="favorite" title="收藏" aria-pressed="false">☆</button><button type="button" data-float-action="edit">编辑</button><button type="button" data-float-action="sidebar">在侧栏打开</button><button type="button" data-float-action="close" aria-label="关闭批注浮窗">×</button></div></header><div class="annotation-float-tabs" role="tablist" aria-label="同位置批注"></div><div class="annotation-float-content" role="tabpanel"></div>`;
     document.body.append(this.float);
     this.floatTabs = this.float.querySelector(".annotation-float-tabs");
     this.floatContent = this.float.querySelector(".annotation-float-content");
     this.floatHead = this.float.querySelector(".annotation-float-head");
+    // Independent of the study page's notes-zoom (which only scales #lecture)
+    // and of the reader/pdf zoom - the float is a global overlay shared by
+    // both pages, appended straight to <body>, so it needs its own font-size
+    // knob. Persisted globally (not per-paper): this is a reading-comfort
+    // preference, not something you'd want to redo for every paper.
+    this.floatFontSize = readAnnotationFloatFontSize(window.localStorage);
+    this.floatContent.style.fontSize = `${this.floatFontSize}px`;
     this.float.addEventListener("click", (event) => this.handleFloatClick(event));
     this.float.addEventListener("keydown", (event) => this.handleFloatKeydown(event));
     this.floatCleanup = createFloatingWindow({
@@ -412,6 +439,14 @@ export class AnnotationPanel {
   // into the POST body).
   openInlineComposer(rawDraft) {
     if (!rawDraft) return;
+    // Captured immediately, before anything else runs, while the live
+    // selection from the user's mouseup is still intact. Cloned so it
+    // survives independently of whatever the Selection object itself does
+    // later (e.g. a previous pending draft's commitInline() clearing it).
+    const liveSelection = window.getSelection();
+    const preservedRange = liveSelection && liveSelection.rangeCount
+      ? liveSelection.getRangeAt(0).cloneRange()
+      : null;
     const { box: anchorRect, ...draft } = rawDraft;
     if (!anchorRect) return;
     // A previous inline card left open (a new selection was made before
@@ -431,7 +466,20 @@ export class AnnotationPanel {
     this.inlineHint.textContent = "点颜色即高亮 · 点击外部完成 · Esc 关闭";
     this.inline.hidden = false;
     this.positionInline(anchorRect);
-    window.setTimeout(() => this.inlineNote.focus(), 0);
+    // Focusing the textarea is necessary (so typing works immediately) but
+    // it's also what collapses window.getSelection() as a side effect -
+    // restoring the preserved range right after keeps the native highlight
+    // visible behind the card. addRange() only repaints the document
+    // selection; it doesn't move DOM focus, so the textarea stays focused
+    // and typing still works normally.
+    window.setTimeout(() => {
+      this.inlineNote.focus();
+      if (preservedRange) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(preservedRange);
+      }
+    }, 0);
     // The click that triggered this open (the "添加批注" toolbar button) is
     // still bubbling and will reach the outside-click listener next.
     this.suppressInlineOutsideClose = true;
@@ -671,7 +719,7 @@ export class AnnotationPanel {
 
   filteredAnnotations() {
     return this.visibleAnnotations().filter((annotation) => (
-      matchesAnnotation(annotation, this.query, this.selectedTag)
+      matchesAnnotation(annotation, this.query, this.selectedTag, this.selectedStatus)
     ));
   }
 
@@ -682,6 +730,9 @@ export class AnnotationPanel {
     this.tagFilter.replaceChildren(new Option("全部标签", ""));
     availableTags.forEach((tag) => this.tagFilter.add(new Option(tag, tag)));
     this.tagFilter.value = this.selectedTag;
+    this.statusFilterButtons.forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.statusFilter === this.selectedStatus));
+    });
   }
 
   reconcileFilterSelection() {
@@ -788,17 +839,27 @@ export class AnnotationPanel {
   }
 
   // Click on an existing highlight/mark in the content (PDF, lecture, or a
-  // concept note): a single hit opens the quick inline editor at anchorRect;
-  // several overlapping annotations fall back to the existing picker (float
-  // tabs or sidebar candidate list) since there's no single mark to anchor to.
+  // concept note). With float mode on, a single hit reopens the float
+  // (content + AI reply thread) via select() - same as clicking a sidebar
+  // list item - so reading an existing annotation never requires the quick
+  // editor. With float mode off, a single hit opens the quick inline editor
+  // at anchorRect instead. Several overlapping annotations always fall back
+  // to the existing picker (float tabs or sidebar candidate list) since
+  // there's no single mark to anchor a quick editor to.
   openAnnotationClicked(annotationIds, anchorRect) {
     const candidates = sortAnnotationCandidates([...new Set(annotationIds || [])]
       .map((annotationId) => this.findAnnotation(annotationId))
       .filter(Boolean));
     if (!candidates.length) return;
-    if (candidates.length === 1 && anchorRect) {
-      this.openInlineEditor(candidates[0], anchorRect);
-      return;
+    if (candidates.length === 1) {
+      if (this.floatMode && this.canFloat()) {
+        this.select(candidates[0].id);
+        return;
+      }
+      if (anchorRect) {
+        this.openInlineEditor(candidates[0], anchorRect);
+        return;
+      }
     }
     this.choose(annotationIds);
   }
@@ -875,6 +936,13 @@ export class AnnotationPanel {
     const annotation = candidates.find((item) => item.id === activeId) || candidates[0];
     if (!annotation) return this.closeFloat();
     if (this.currentId !== annotation.id) this.currentId = annotation.id;
+    const favoriteButton = this.float.querySelector('[data-float-action="favorite"]');
+    if (favoriteButton) {
+      const isFavorite = Boolean(annotation.is_favorite);
+      favoriteButton.textContent = isFavorite ? "★" : "☆";
+      favoriteButton.title = isFavorite ? "取消收藏" : "收藏";
+      favoriteButton.setAttribute("aria-pressed", String(isFavorite));
+    }
     const labels = annotationCandidateTabLabels(candidates);
     this.floatTabs.replaceChildren();
     if (candidates.length > 1) candidates.forEach((candidate, index) => {
@@ -921,12 +989,36 @@ export class AnnotationPanel {
     this.floatContent.replaceChildren(article);
   }
 
+  setFloatFontSize(value) {
+    this.floatFontSize = clampAnnotationFloatFontSize(value);
+    this.floatContent.style.fontSize = `${this.floatFontSize}px`;
+    writeAnnotationFloatFontSize(window.localStorage, this.floatFontSize);
+  }
+
   handleFloatClick(event) {
     const action = event.target.closest("[data-float-action]")?.dataset.floatAction;
     if (action === "close") return this.closeFloat();
+    if (action === "font-out") return this.setFloatFontSize(this.floatFontSize - 1);
+    if (action === "font-in") return this.setFloatFontSize(this.floatFontSize + 1);
+    if (action === "favorite") {
+      const annotation = this.findAnnotation(this.currentId);
+      if (annotation) this.toggleFavorite(annotation);
+      return;
+    }
     if (action === "sidebar") {
       this.open();
       scrollAnnotationIntoView(this.list, this.currentId);
+      return;
+    }
+    if (action === "edit") {
+      // Quick color/note editing is still reachable from the float (just one
+      // click deeper than before float mode became the default single-click
+      // destination) - anchor the popup at the button itself since the float
+      // isn't pinned to the highlight's on-page position.
+      const annotation = this.findAnnotation(this.currentId);
+      const anchorRect = event.target.closest("[data-float-action]").getBoundingClientRect();
+      this.closeFloat();
+      if (annotation) this.openInlineEditor(annotation, anchorRect);
       return;
     }
     const tab = event.target.closest("[data-annotation-id]");
@@ -968,10 +1060,60 @@ export class AnnotationPanel {
 
   render() {
     this.toggle.querySelector("b").textContent = String(this.visibleAnnotations().length);
+    // Only the current paper's annotations drive this - a global "all scope"
+    // alert would fire on every page for annotations elsewhere the reader has
+    // no reason to check from here.
+    this.toggleAlert.hidden = !this.currentAnnotations.some((annotation) => {
+      const status = computeAnnotationStatus(annotation);
+      return status.unreadReply || status.pendingAi;
+    });
     this.renderFilters();
     this.renderList();
     this.renderDetail();
     this.syncFloat();
+  }
+
+  // A WeChat-style read receipt: opening an annotation's thread clears its
+  // unread-reply dot. Cheap to call from every renderDetail() - the status
+  // check short-circuits once last_viewed_at has caught up, so it only ever
+  // posts while there's an actual unread reply to acknowledge.
+  async noteViewed(annotationId) {
+    const annotation = this.findAnnotation(annotationId);
+    if (!annotation || !computeAnnotationStatus(annotation).unreadReply) return;
+    if (this.viewedInFlight.has(annotationId)) return;
+    this.viewedInFlight.add(annotationId);
+    try {
+      const updated = await apiRequest(`/api/papers/${annotation.paper_id}/annotations/${annotation.id}/viewed`, { method: "POST" });
+      Object.assign(annotation, updated);
+      this.syncAnnotation(annotation);
+      this.renderList();
+      if (this.toggleAlert.hidden === false) {
+        this.toggleAlert.hidden = !this.currentAnnotations.some((item) => {
+          const status = computeAnnotationStatus(item);
+          return status.unreadReply || status.pendingAi;
+        });
+      }
+    } catch (_error) {
+      // Best-effort - a missed read receipt just leaves the dot showing a bit longer.
+    } finally {
+      this.viewedInFlight.delete(annotationId);
+    }
+  }
+
+  async toggleFavorite(annotation) {
+    try {
+      const updated = await apiRequest(`/api/papers/${annotation.paper_id}/annotations/${annotation.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_favorite: !annotation.is_favorite }),
+      });
+      Object.assign(annotation, updated);
+      this.syncAnnotation(annotation);
+      this.onMutation("updated", annotation);
+      this.render();
+    } catch (error) {
+      this.setStatus(`收藏失败：${error.message}`);
+    }
   }
 
   syncFloat() {
@@ -1001,12 +1143,23 @@ export class AnnotationPanel {
       this.list.append(element("p", "annotation-empty annotation-filter-empty", "没有符合当前筛选条件的批注。"));
       return;
     }
-    [...filtered].reverse().forEach((annotation) => {
+    // Favorites are pinned to the top as the "higher-tier" presentation the
+    // star is for - Array#sort is stable, so within each group (favorite /
+    // not) the existing newest-first order from the .reverse() below survives.
+    const ordered = [...filtered].reverse();
+    ordered.sort((left, right) => Number(Boolean(right.is_favorite)) - Number(Boolean(left.is_favorite)));
+    ordered.forEach((annotation) => {
       const button = element("button", "annotation-list-item");
       button.type = "button";
       button.dataset.annotationId = annotation.id;
       if (annotation.id === this.currentId) button.classList.add("is-active");
       if (this.candidateIds.includes(annotation.id)) button.classList.add("is-candidate");
+      const status = computeAnnotationStatus(annotation);
+      if (status.isFavorite) button.classList.add("is-favorite");
+      // Left border accent (not background) so the card still shows the
+      // usual hover/active pale-blue background - see annotations.css around
+      // .annotation-list-item for the base border-left this overrides.
+      button.style.borderLeftColor = annotationSwatchColor(annotation.color);
       const location = annotation.target_type === "lecture"
         ? "讲义"
         : annotation.target_type === "note"
@@ -1016,7 +1169,26 @@ export class AnnotationPanel {
         ? `${annotation.paper_title} · ${location}`
         : location;
       const listMeta = element("span", "annotation-list-meta");
-      listMeta.append(element("span", "annotation-location", label));
+      const leading = element("span", "annotation-list-meta-lead");
+      const badges = element("span", "annotation-status-badges");
+      if (status.unreadReply) {
+        const dot = element("span", "annotation-status-dot is-unread");
+        dot.title = "AI 有新回复,点击查看";
+        badges.append(dot);
+      }
+      if (status.pendingAi) {
+        const dot = element("span", "annotation-status-dot is-pending");
+        dot.title = "已发出,AI 还没回应";
+        badges.append(dot);
+      }
+      if (status.isFavorite) {
+        const star = element("span", "annotation-status-star", "★");
+        star.title = "已收藏";
+        badges.append(star);
+      }
+      if (badges.childNodes.length) leading.append(badges);
+      leading.append(element("span", "annotation-location", label));
+      listMeta.append(leading);
       const updatedAt = renderTimestamp(annotation.updated_at, "更新 ");
       if (updatedAt) listMeta.append(updatedAt);
       button.append(
@@ -1045,6 +1217,8 @@ export class AnnotationPanel {
       this.detail.append(element("p", "annotation-empty", "从列表选择一条批注查看详情。"));
       return;
     }
+    this.noteViewed(annotation.id);
+    const status = computeAnnotationStatus(annotation);
 
     const article = element("article", "annotation-thread");
     const location = annotation.target_type === "lecture"
@@ -1055,7 +1229,13 @@ export class AnnotationPanel {
     const locationButton = element("button", "annotation-thread-location", location);
     locationButton.type = "button";
     locationButton.dataset.threadAction = "navigate";
-    article.append(locationButton, element("blockquote", "", annotation.selected_text));
+    const excerpt = element("blockquote", "", annotation.selected_text);
+    // Mirror the annotation's actual highlight color instead of the
+    // previously hardcoded yellow (see pdfview.js/study.js for the same
+    // annotationMarkColor pattern used to paint the highlight mark itself).
+    excerpt.style.background = annotationMarkColor(annotation.color);
+    excerpt.style.borderLeftColor = annotationSwatchColor(annotation.color);
+    article.append(locationButton, excerpt);
 
     const metadata = element("div", "annotation-thread-metadata");
     const createdAt = renderExactTimestamp(annotation.created_at, "创建 ");
@@ -1122,13 +1302,17 @@ export class AnnotationPanel {
         ? renderMarkdown(annotation.note, "annotation-md annotation-root-note")
         : element("p", "annotation-root-note", "这条旧高亮还没有批注内容。"));
       const actions = element("div", "annotation-thread-actions");
+      const favorite = element("button", "", status.isFavorite ? "★ 已收藏" : "☆ 收藏");
+      favorite.type = "button";
+      favorite.dataset.threadAction = "toggle-favorite";
+      favorite.setAttribute("aria-pressed", String(status.isFavorite));
       const edit = element("button", "", "编辑");
       edit.type = "button";
       edit.dataset.threadAction = "edit";
       const remove = element("button", "danger", "删除");
       remove.type = "button";
       remove.dataset.threadAction = "delete";
-      actions.append(edit, remove);
+      actions.append(favorite, edit, remove);
       article.append(actions);
     }
 
@@ -1289,6 +1473,19 @@ export class AnnotationPanel {
       return;
     }
 
+    const statusFilterButton = event.target.closest("[data-status-filter]");
+    if (statusFilterButton) {
+      this.advanceUiRevision();
+      const value = statusFilterButton.dataset.statusFilter;
+      this.selectedStatus = this.selectedStatus === value ? "" : value;
+      const selectionChanged = this.reconcileFilterSelection();
+      this.renderFilters();
+      this.renderList();
+      if (selectionChanged) this.renderDetail();
+      this.syncFloat();
+      return;
+    }
+
     const listItem = event.target.closest("[data-annotation-id]");
     if (listItem) return this.select(listItem.dataset.annotationId, true);
 
@@ -1325,6 +1522,8 @@ export class AnnotationPanel {
       this.renderDetail();
     } else if (action === "navigate" && annotation) {
       this.onNavigate(annotation);
+    } else if (action === "toggle-favorite" && annotation) {
+      await this.toggleFavorite(annotation);
     } else if (action === "delete" && annotation) {
       if (!window.confirm("删除这条批注及其全部回复？")) return;
       const operationRevision = this.uiRevision;

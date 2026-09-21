@@ -470,6 +470,49 @@ def test_reader_and_study_pages_load_shared_annotation_ui(tmp_path: Path) -> Non
     assert re.search(r"/static/vendor/katex/katex\.min\.js\?v=\d+", study.text)
 
 
+def test_lecture_asset_route_serves_whitelisted_files_inside_paper_dir(tmp_path: Path) -> None:
+    settings = Settings.create(tmp_path / "data")
+    service = LibraryService(settings)
+
+    import asyncio
+    result = asyncio.run(service.add_candidate(PaperCandidate(title="Widget Assets", source="test"), download_pdf=False))
+    assets_root = settings.data_dir / "lectures" / "assets"
+    assets = assets_root / result.paper_id
+    (assets / "demo").mkdir(parents=True)
+    (assets / "demo" / "widget.html").write_text("<p>widget</p>", encoding="utf-8")
+    (assets / "demo" / "data.json").write_text('{"ok": true}', encoding="utf-8")
+    (assets / "run.py").write_text("print('no')", encoding="utf-8")
+    # Whitelisted extension, one level above this paper's asset dir: only
+    # reachable by escaping it, so a 200 here would mean traversal worked.
+    (assets_root / "secret.txt").write_text("secret", encoding="utf-8")
+    (assets / "link.txt").symlink_to(assets_root / "secret.txt")
+
+    base = f"/paper/{result.paper_id}/lecture-asset"
+    with TestClient(create_app(settings)) as client:
+        page = client.get(f"{base}/demo/widget.html")
+        data = client.get(f"{base}/demo/data.json")
+        escapes = [
+            client.get(f"{base}/{probe}")
+            for probe in ("..%2Fsecret.txt", "%2e%2e/secret.txt", "demo/..%2F..%2Fsecret.txt", "%2Fetc%2Fhosts", "link.txt")
+        ]
+        blocked_type = client.get(f"{base}/run.py")
+        missing = client.get(f"{base}/demo/nope.html")
+        unknown_paper = client.get("/paper/00000000-0000-0000-0000-000000000000/lecture-asset/demo/widget.html")
+
+    assert page.status_code == 200
+    assert page.text == "<p>widget</p>"
+    assert page.headers["content-type"].startswith("text/html")
+    assert page.headers["cache-control"] == "no-cache"
+    assert "etag" in page.headers and "last-modified" in page.headers
+    assert data.status_code == 200
+    assert data.headers["content-type"].startswith("application/json")
+    assert [response.status_code for response in escapes] == [404] * len(escapes)
+    assert all("secret" not in response.text for response in escapes)
+    assert blocked_type.status_code == 415
+    assert missing.status_code == 404
+    assert unknown_paper.status_code == 404
+
+
 def test_annotation_sidebar_metadata_ui_contracts() -> None:
     static_dir = Path(__file__).parents[1] / "src" / "mylibrary" / "web" / "static"
     annotations_js = (static_dir / "annotations.js").read_text(encoding="utf-8")
@@ -477,7 +520,7 @@ def test_annotation_sidebar_metadata_ui_contracts() -> None:
     reader_js = (static_dir / "reader.js").read_text(encoding="utf-8")
     study_js = (static_dir / "study.js").read_text(encoding="utf-8")
 
-    assert 'from "/static/annotation-metadata.mjs?v=4"' in annotations_js
+    assert re.search(r'from "/static/annotation-metadata\.mjs\?v=\d+"', annotations_js)
     assert 'from "/static/annotation-form-state.mjs?v=1"' in annotations_js
     assert "data-annotation-query" in annotations_js
     assert "data-annotation-tag-filter" in annotations_js

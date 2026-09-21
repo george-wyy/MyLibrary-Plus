@@ -2,15 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <script>try { const t = localStorage.getItem('mylibrary-theme'); if (t) document.documentElement.dataset.theme = t; } catch(e) {}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}MyLibrary{% endblock %}</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/style.css?v=20">
-  <script src="/static/app.js?v=17" defer></script>
+  <link rel="stylesheet" href="/static/style.css?v=21">
+  <script type="module" src="/static/app.js?v=19"></script>
 </head>
 <body>
-  <header><a href="/">MyLibrary</a><span>Local paper library</span><nav><a href="/">Timeline</a><a href="/tags">Tags</a><a href="/add">Add paper</a><a href="/wiki">Wiki</a></nav></header>
+  <header><a href="/">MyLibrary</a><span>Local paper library</span><nav><a href="/">Timeline</a><a href="/tags">Tags</a><a href="/add">Add paper</a><a href="/wiki">Wiki</a><button type="button" id="theme-toggle" class="theme-toggle" title="夜览模式" aria-label="夜览模式" aria-pressed="false">🌙</button></nav></header>
   <main>
     {% if message %}<div class="notice">{{ message }}</div>{% endif %}
     {% block content %}{% endblock %}

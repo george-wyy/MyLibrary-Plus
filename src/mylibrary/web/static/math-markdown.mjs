@@ -138,9 +138,19 @@ export function sanitizeMarkdownHtml(root) {
     [...node.attributes].forEach((attribute) => {
       const name = attribute.name.toLowerCase();
       const value = attribute.value.trim();
-      if (name.startsWith("on") || name === "srcdoc" || (/(href|src|action|formaction|xlink:href)/.test(name) && /^(?:javascript|data):/i.test(value))) node.removeAttribute(attribute.name);
+      // 位图 data URI 放行(讲义里内嵌论文插图用)——只放行 img 的 src，且只允许这几种位图格式。
+      // 故意不含 svg+xml：SVG 可以携带脚本，而位图不能。
+      const isInlineBitmap = node.tagName === "IMG" && name === "src"
+        && /^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(value);
+      if (name.startsWith("on") || name === "srcdoc"
+        || (/(href|src|action|formaction|xlink:href)/.test(name) && /^(?:javascript|data):/i.test(value) && !isInlineBitmap)) {
+        node.removeAttribute(attribute.name);
+      }
     });
-    if (node.tagName === "A") {
+    // In-page hash links (讲义里的 #pdfsec= / #pdf= 跳转) are handled by the page
+    // itself; opening them in a new tab would break the jump.
+    const anchorHref = node.tagName === "A" ? (node.getAttribute("href") || "") : "";
+    if (node.tagName === "A" && !anchorHref.startsWith("#") && !anchorHref.includes("#pdf")) {
       node.target = "_blank";
       node.rel = "noopener noreferrer";
     }

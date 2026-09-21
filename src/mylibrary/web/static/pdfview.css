@@ -1,14 +1,56 @@
 /* Styles for the shared pdf.js viewer (PdfView): used by the full-page reader
    and by the left pane of the study split view. */
+:root {
+  /* Shared token names/values match reader.css/annotations.css/style.css so
+     the same dark palette applies everywhere (夜览模式). The rendered PDF
+     page itself (.pdf-page, a rasterized document) intentionally stays
+     literal white in both themes - only the surrounding chrome themes. The
+     floating toolbars (.zoom-controls, .pdf-page-layout-toggle,
+     .pdf-toc-toggle, .pdf-toc-head) are already a dark pill design in light
+     mode and are left as-is; only the light .pdf-toc panel body needs a
+     dark variant. */
+  --toc-bg: #f7f8f7;
+  --toc-border: #c9cecf;
+  --toc-item-text: #2b3238;
+  --toc-item-border: #eceeee;
+  --toc-item-hover: #eef1f0;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --toc-bg: #232729;
+    --toc-border: #40474c;
+    --toc-item-text: #e6e6e6;
+    --toc-item-border: #383e42;
+    --toc-item-hover: #2b3033;
+  }
+}
+:root[data-theme="dark"] {
+  --toc-bg: #232729;
+  --toc-border: #40474c;
+  --toc-item-text: #e6e6e6;
+  --toc-item-border: #383e42;
+  --toc-item-hover: #2b3033;
+}
 .pdf-pages { display: grid; justify-items: center; gap: 1.4rem; width: max-content; min-width: 100%; padding: 0 1rem 4rem; }
 /* Two-up: consecutive pages pair off into rows of 2 via grid auto-flow
    (page 1+2, 3+4, ...); align-items:start stops a shorter neighbor page
    from being stretched to match a taller one in the same row. */
 .pdf-pages.pdf-pages-2up { grid-template-columns: repeat(2, auto); justify-content: center; align-items: start; }
 .pdf-page { position: relative; flex: none; background: white; box-shadow: 0 2px 12px #25333a32; }
+/* Shown in place of a page's canvas when its render task timed out (see
+   pdfview.js renderPage) - fills the already-sized .pdf-page shell instead
+   of leaving a silent blank rectangle indistinguishable from "still loading". */
+.pdf-page-render-failed { position: absolute; inset: 0; display: grid; place-items: center; gap: .6rem; padding: 1rem; color: #66727a; text-align: center; }
+.pdf-page-render-failed p { margin: 0; font-size: .85rem; }
+.pdf-page-render-failed button { padding: .35rem .9rem; color: #34464e; background: #edf0f0; border: 1px solid #ccd2d4; border-radius: 6px; cursor: pointer; }
+.pdf-page-render-failed button:hover { background: #e2e6e6; }
 .page-content { position: absolute; inset: 0 auto auto 0; transform-origin: 0 0; }
 .pdf-page canvas { display: block; position: absolute; inset: 0; }
 .highlight-layer { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+/* mix-blend-mode:multiply is intentionally left untouched for dark mode -
+   .pdf-page above always renders on a literal white background (the
+   rasterized document itself isn't recolored), so the highlight wash always
+   multiplies against white exactly as in light mode, regardless of theme. */
 .saved-highlight { position: absolute; display: block; padding: 0; border: 0; border-radius: 2px; mix-blend-mode: multiply; pointer-events: none; }
 .saved-highlight.annotation-flash { outline: 3px solid #d69623; }
 .textLayer { color-scheme: only light; position: absolute; text-align: initial; inset: 0; overflow: clip; opacity: 1; line-height: 1; letter-spacing: normal; word-spacing: normal; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; caret-color: CanvasText; z-index: 2; --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size)); }
@@ -31,13 +73,13 @@
 .pdf-toc-toggle { position: fixed; left: 1rem; bottom: 1rem; z-index: 30; display: flex; align-items: center; gap: .3rem; height: 2.35rem; padding: 0 .8rem; color: #f3f5f5; background: #303a3fe8; border: 1px solid #ffffff22; border-radius: 8px; box-shadow: 0 3px 14px #0004; font-size: .82rem; cursor: pointer; }
 .pdf-toc-toggle:hover { background: #3a454bea; }
 .pdf-toc-toggle[hidden] { display: none; }
-.pdf-toc { position: fixed; left: 1rem; top: 1rem; bottom: 4.3rem; z-index: 35; display: grid; grid-template-rows: auto 1fr; width: min(300px, 82vw); overflow: hidden; background: #f7f8f7; border: 1px solid #c9cecf; border-radius: 10px; box-shadow: 0 8px 30px #0004a0; font-size: .85rem; }
+.pdf-toc { position: fixed; left: 1rem; top: 1rem; bottom: 4.3rem; z-index: 35; display: grid; grid-template-rows: auto 1fr; width: min(300px, 82vw); overflow: hidden; background: var(--toc-bg); border: 1px solid var(--toc-border); border-radius: 10px; box-shadow: 0 8px 30px #0004a0; font-size: .85rem; }
 .pdf-toc[hidden] { display: none; }
 .pdf-toc-head { display: flex; align-items: center; justify-content: space-between; flex: none; padding: .55rem .75rem; color: #eef3f4; background: #324148; font-weight: 600; }
 .pdf-toc-close { border: 0; background: transparent; color: inherit; font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 0 .2rem; }
 .pdf-toc-body { overflow-y: auto; padding: .4rem 0; }
-.pdf-toc-item { display: block; width: 100%; padding: .42rem .9rem; color: #2b3238; background: transparent; border: 0; border-bottom: 1px solid #eceeee; text-align: left; cursor: pointer; font: inherit; }
-.pdf-toc-item:hover { background: #eef1f0; }
+.pdf-toc-item { display: block; width: 100%; padding: .42rem .9rem; color: var(--toc-item-text); background: transparent; border: 0; border-bottom: 1px solid var(--toc-item-border); text-align: left; cursor: pointer; font: inherit; }
+.pdf-toc-item:hover { background: var(--toc-item-hover); }
 
 /* --- Figure hotspots: click a whole image to annotate it --- */
 .figure-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }

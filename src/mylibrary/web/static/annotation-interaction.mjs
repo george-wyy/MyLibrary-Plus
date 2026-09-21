@@ -49,6 +49,39 @@ export function writeAnnotationFloatMode(storage, key, enabled) {
   }
 }
 
+/** A single global key (not per-paper): reading comfort, not something worth
+ * re-tuning for every paper the way float-mode's opt-out is. */
+const ANNOTATION_FLOAT_FONT_SIZE_KEY = "mylibrary.annotation.float-font-size";
+const ANNOTATION_FLOAT_FONT_SIZE_DEFAULT = 14;
+const ANNOTATION_FLOAT_FONT_SIZE_MIN = 11;
+const ANNOTATION_FLOAT_FONT_SIZE_MAX = 22;
+
+export function clampAnnotationFloatFontSize(value) {
+  return Math.min(ANNOTATION_FLOAT_FONT_SIZE_MAX, Math.max(ANNOTATION_FLOAT_FONT_SIZE_MIN, Math.round(value)));
+}
+
+export function readAnnotationFloatFontSize(storage) {
+  try {
+    const raw = storage?.getItem(ANNOTATION_FLOAT_FONT_SIZE_KEY);
+    // Number(null) is 0, not NaN - an explicit null check (no stored value
+    // yet) is required, or a first-ever read clamps straight to the minimum
+    // instead of falling through to the default.
+    if (raw === null || raw === undefined) return ANNOTATION_FLOAT_FONT_SIZE_DEFAULT;
+    const saved = Number(raw);
+    return Number.isFinite(saved) ? clampAnnotationFloatFontSize(saved) : ANNOTATION_FLOAT_FONT_SIZE_DEFAULT;
+  } catch (_error) {
+    return ANNOTATION_FLOAT_FONT_SIZE_DEFAULT;
+  }
+}
+
+export function writeAnnotationFloatFontSize(storage, value) {
+  try {
+    storage?.setItem(ANNOTATION_FLOAT_FONT_SIZE_KEY, String(value));
+  } catch (_error) {
+    // Font size still applies for this session without persistence.
+  }
+}
+
 /** Newest discussion first, with stable input order for equal or bad dates. */
 export function sortAnnotationCandidates(annotations) {
   return [...(annotations || [])]

@@ -60,6 +60,14 @@ def initialize_database(engine: Engine) -> None:
             connection.execute(text(
                 "ALTER TABLE annotations ADD COLUMN anchor_json TEXT NOT NULL DEFAULT '{}'"
             ))
+    if "is_favorite" not in annotation_columns:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "ALTER TABLE annotations ADD COLUMN is_favorite BOOLEAN NOT NULL DEFAULT 0"
+            ))
+    if "last_viewed_at" not in annotation_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE annotations ADD COLUMN last_viewed_at DATETIME"))
     with engine.begin() as connection:
         connection.execute(text("CREATE INDEX IF NOT EXISTS ix_papers_is_done ON papers (is_done)"))
         connection.execute(text(

@@ -46,7 +46,8 @@ flowchart LR
 |---|---|
 | **图优先时间线** | 每张卡片带首页 + 图 1–3 的轮播，点开是全屏灯箱。可按标签、「有讲义」筛选，也可搜索。 |
 | **批注只有一个地方** | 在 PDF 里或在 Markdown 讲义里选中文字就能批注，两者共用同一个侧栏；还有可拖动缩放的浮窗单独读一条线程，支持每条批注打标签、时间戳、编辑、回复。 |
-| **讲义模式** | 左边 PDF，右边你的 Markdown 讲义——支持 KaTeX 公式、嵌图、背景知识框、`[[双链]]` 到共享概念笔记以及反向链接。 |
+| **讲义模式** | 左边 PDF，右边你的 Markdown 讲义——支持 KaTeX 公式、嵌图、背景知识框、`[[双链]]` 到共享概念笔记以及反向链接。一篇论文可以挂多份讲义（一份入门、一份逐章精读），在标题旁的下拉里切换；讲义里还能用 ` ```widget ` 围栏块嵌入自己的交互组件。 |
+| **夜览模式** | 全站 系统 / 浅色 / 深色 三态切换，首帧之前就应用，不会闪白；时间线、阅读器、讲义模式和批注面板都有配套的深色配色。 |
 | **Zotero 离线导入** | `zotero_import.py -c "分组名"` 直接读 Zotero 的 SQLite，复用本地已有的 PDF，所以付费墙论文也能抽出图。全程不联网。 |
 | **给 AI 用的批注接口** | `GET /api/papers/{id}/annotations/context` 返回论文 + 批注 + 使用说明的 JSON；agent 可以用 `role: "assistant"` 把回复写回线程。 |
 | **哪都能加论文** | CLI 支持标题 / URL / DOI / arXiv ID / PMID；也可以配一个私有 Telegram bot，在手机上丢链接进来。 |
@@ -54,8 +55,9 @@ flowchart LR
 
 ### 读与批注
 
-在 PDF 里选中文字就能写批注。侧栏收着这篇论文的**所有**批注——PDF 里的和讲义里的——
-带标签、时间戳，可编辑、可回复。`复制给 AI` 把整条线程作为结构化上下文拷走。
+在 PDF 里选中文字就能写批注——也可以框选整张图，把一块区域作为一条批注。侧栏收着这篇论文的
+**所有**批注——PDF 里的和讲义里的——带标签、时间戳，可编辑、可回复，还能按「收藏 / 未读 /
+等 AI 回复」筛选。`复制给 AI` 把整条线程作为结构化上下文拷走。
 
 ![PDF 阅读器与批注侧栏](docs/images/reader.png)
 
@@ -63,6 +65,20 @@ flowchart LR
 
 你的 Markdown 讲义在 PDF 旁边渲染：KaTeX 公式、嵌图、背景知识框，以及 `[[双链]]`
 到共享概念笔记（并带反向链接）。
+
+一篇论文可以有多份讲义：主讲义是 `data/lectures/<paper_id>.md`，附加讲义写成
+`<paper_id>__<slug>.md`（如 `__priors`、`__chapter-3`），在标题旁的下拉里切换。
+讲义还能带自己的交互组件——把文件放进 `data/lectures/assets/<paper_id>/`，用围栏块引用：
+
+````markdown
+```widget
+src: dragcal-explorer.html#step=gating
+height: 640
+title: 交互：四道门控
+```
+````
+`study.js` 把它渲染成同源 iframe；服务端只从该论文的资产目录里吐白名单内的类型
+（html/js/css/json/csv/图片），`..` 和绝对路径都出不去。
 
 ![讲义模式：左 PDF，右渲染后的讲义](docs/images/study.png)
 
@@ -161,7 +177,8 @@ data/
 ├── library.sqlite3   # 元数据、标签、笔记、批注、阅读状态
 ├── files/            # 内容寻址的 PDF（sha256 命名）
 ├── thumbnails/       # 首页 + 图 1–3 预览
-├── lectures/         # <paper_id>.md 讲义
+├── lectures/         # <paper_id>.md 讲义；附加讲义写成 <paper_id>__<slug>.md
+│                     # + lectures/assets/<paper_id>/ 放交互组件
 ├── notes/            # <slug>.md 共享概念笔记（[[双链]] 的落点）
 ├── cache/  logs/  tmp/
 ```
@@ -174,8 +191,12 @@ data/
 PDF 下载、缩略图、标签、笔记、时间线、Telegram bot、systemd 服务。本 fork 在上面加了阅读层：
 
 - PDF 与 Markdown 讲义统一的批注体系：标签、时间戳、回复、筛选，以及可拖动的阅读浮窗
-- 讲义模式：PDF + 讲义左右分屏，KaTeX 公式、`[[双链]]`、反向链接
+- PDF 阅读器里的图区批注：框选一块图作为一条批注，而不只是选文字
+- 讲义模式：PDF + 讲义左右（或上下）分屏，KaTeX 公式、`[[双链]]`、反向链接；
+  一篇论文可挂多份讲义，讲义里能嵌交互组件
+- 夜览模式（系统 / 浅色 / 深色），首帧前生效
 - 时间线卡片的图集轮播与灯箱，以及「有讲义」筛选
+- 附件：带补充材料的论文在阅读器和讲义模式里有文件切换
 - Zotero 分组离线导入
 - 给外部 agent 用的批注上下文 API
 - 应用内的工作流 wiki（`/wiki`）
@@ -192,7 +213,7 @@ Telegram 凭据放在 `api_keys/` 下，已被 git 忽略。
 
 ```bash
 .venv/bin/pip install -e '.[dev]'
-.venv/bin/pytest -q                       # 70 个测试
+.venv/bin/pytest -q                       # 71 个测试
 for t in tests/*.mjs; do node "$t"; done  # 前端单元测试
 ```
 

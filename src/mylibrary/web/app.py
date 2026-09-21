@@ -127,12 +127,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return templates.TemplateResponse(request, "paper.html", {"paper": paper, "message": message, "thumbnail_version": THUMBNAIL_VERSION, "available_thumbnail_sources": available_sources, "has_lecture": _lecture_file(settings, paper_id).exists()})
 
     @app.get("/paper/{paper_id}/pdf")
-    async def paper_pdf(paper_id: str):  # type: ignore[no-untyped-def]
+    async def paper_pdf(paper_id: str, file_id: int | None = None):  # type: ignore[no-untyped-def]
         paper = service.get_paper(paper_id)
         if not paper or not paper.files:
             raise HTTPException(404, "PDF not found")
-        path = settings.managed_path(paper.files[0].relative_path)
-        return FileResponse(path, media_type="application/pdf", filename=f"{paper.title}.pdf", content_disposition_type="inline")
+        stored = paper.files[0]
+        if file_id is not None:
+            stored = next((item for item in paper.files if item.id == file_id), None)
+            if stored is None:
+                raise HTTPException(404, "PDF not found")
+        path = settings.managed_path(stored.relative_path)
+        # no-cache (revalidate), not no-store: the URL stays the same when a
+        # paper's file is replaced - e.g. re-encoding a scan the viewer can't
+        # render - and without this the browser serves the superseded PDF from
+        # cache indefinitely. FileResponse still sends etag/last-modified, so
+        # an unchanged file is answered with a cheap 304.
+        return FileResponse(
+            path,
+            media_type="application/pdf",
+            filename=f"{paper.title}.pdf",
+            content_disposition_type="inline",
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @app.get("/paper/{paper_id}/download")
     async def download_paper(paper_id: str):  # type: ignore[no-untyped-def]
@@ -150,12 +166,45 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         regions = await asyncio.to_thread(service.files.image_regions, paper.files[0].relative_path)
         return JSONResponse(regions)
 
+    @app.get("/api/papers/{paper_id}/lectures")
+    async def paper_lectures(paper_id: str):  # type: ignore[no-untyped-def]
+        if service.get_paper(paper_id) is None:
+            raise HTTPException(404, "Paper not found")
+        return JSONResponse(_lecture_variants(settings, paper_id))
+
     @app.get("/paper/{paper_id}/lecture.md")
-    async def paper_lecture_md(paper_id: str):  # type: ignore[no-untyped-def]
-        path = _lecture_file(settings, paper_id)
+    async def paper_lecture_md(paper_id: str, variant: str | None = None):  # type: ignore[no-untyped-def]
+        path = _lecture_file(settings, paper_id, variant)
         if not path.exists():
             raise HTTPException(404, "No study notes for this paper")
-        return FileResponse(path, media_type="text/markdown; charset=utf-8")
+        return FileResponse(
+            path,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    @app.get("/paper/{paper_id}/lecture-asset/{asset_path:path}")
+    async def paper_lecture_asset(paper_id: str, asset_path: str):  # type: ignore[no-untyped-def]
+        # 讲义里 ```widget 块嵌的交互组件(HTML/JS/JSON…),文件在
+        # data/lectures/assets/<paper_id>/ 下(可有子目录),见 study.js 的 renderWidgetBlocks。
+        # paper_id 必须是单个安全路径段且确有其文,然后 resolve 后必须仍落在该论文的资产目录里。
+        if not paper_id or _lecture_slug(paper_id) != paper_id or service.get_paper(paper_id) is None:
+            raise HTTPException(404, "Paper not found")
+        path = _lecture_asset_file(settings, paper_id, asset_path)
+        if path is None:
+            raise HTTPException(404, "Lecture asset not found")
+        media_type = LECTURE_ASSET_TYPES.get(path.suffix.lower())
+        if media_type is None:
+            raise HTTPException(415, "Unsupported lecture asset type")
+        if not path.is_file():
+            raise HTTPException(404, "Lecture asset not found")
+        # 讲义资产会频繁改:no-cache(每次重新验证),不是 immutable。FileResponse
+        # 自带 etag/last-modified,没改过的文件只回一个便宜的 304。
+        return FileResponse(
+            path,
+            media_type=media_type,
+            headers={"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"},
+        )
 
     @app.get("/api/notes/{slug}")
     async def concept_note(slug: str):  # type: ignore[no-untyped-def]
@@ -171,8 +220,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             for lecture_path in sorted(lectures_dir.glob("*.md")):
                 try:
                     if token in lecture_path.read_text(encoding="utf-8"):
-                        paper = service.get_paper(lecture_path.stem)
-                        backlinks.append({"paper_id": lecture_path.stem, "title": paper.title if paper else lecture_path.stem})
+                        # A variant lecture is "<paper_id>__<slug>.md"; the paper id is
+                        # the part before the separator, so strip it before the lookup
+                        # or the backlink shows a raw filename instead of a title.
+                        backlink_paper_id = lecture_path.stem.split("__", 1)[0]
+                        # One paper can cite a card from several of its lectures; list
+                        # the paper once rather than once per lecture file.
+                        if any(item["paper_id"] == backlink_paper_id for item in backlinks):
+                            continue
+                        paper = service.get_paper(backlink_paper_id)
+                        backlinks.append({"paper_id": backlink_paper_id, "title": paper.title if paper else lecture_path.stem})
                 except OSError:
                     continue
         return JSONResponse({"slug": safe, "markdown": markdown, "backlinks": backlinks})
@@ -186,13 +243,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ]
 
     @app.get("/paper/{paper_id}/study")
-    async def paper_study(request: Request, paper_id: str):  # type: ignore[no-untyped-def]
+    async def paper_study(request: Request, paper_id: str, file_id: int | None = None):  # type: ignore[no-untyped-def]
         paper = service.get_paper(paper_id)
         if not paper or not paper.files:
             raise HTTPException(404, "Paper not found")
         if not _lecture_file(settings, paper_id).exists():
             raise HTTPException(404, "No study notes for this paper")
-        return templates.TemplateResponse(request, "study.html", {"paper": paper})
+        selected_file = paper.files[0]
+        if file_id is not None:
+            match = next((item for item in paper.files if item.id == file_id), None)
+            if match is not None:
+                selected_file = match
+        return templates.TemplateResponse(request, "study.html", {"paper": paper, "selected_file_id": selected_file.id})
 
     @app.get("/paper/{paper_id}/read")
     async def paper_reader(request: Request, paper_id: str):  # type: ignore[no-untyped-def]
@@ -277,6 +339,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
                     raise ValueError("Annotation tags must be an array of strings")
                 changes["tags"] = tags
+            if "is_favorite" in body:
+                if not isinstance(body["is_favorite"], bool):
+                    raise ValueError("is_favorite must be a boolean")
+                changes["is_favorite"] = body["is_favorite"]
             annotation = service.update_annotation(paper_id, annotation_id, **changes)
         except (TypeError, ValueError) as error:
             raise HTTPException(400, str(error)) from error
@@ -299,6 +365,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except LookupError as error:
             raise HTTPException(404, str(error)) from error
         return JSONResponse(_annotation_reply_json(reply), status_code=201)
+
+    @app.post("/api/papers/{paper_id}/annotations/{annotation_id}/viewed")
+    async def mark_annotation_viewed(paper_id: str, annotation_id: str):  # type: ignore[no-untyped-def]
+        try:
+            annotation = service.mark_annotation_viewed(paper_id, annotation_id)
+        except LookupError as error:
+            raise HTTPException(404, str(error)) from error
+        return JSONResponse(_annotation_json(annotation))
 
     @app.delete("/api/papers/{paper_id}/annotations/{annotation_id}", status_code=204)
     async def remove_annotation(paper_id: str, annotation_id: str):  # type: ignore[no-untyped-def]
@@ -378,9 +452,83 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
-def _lecture_file(settings: Settings, paper_id: str) -> Path:
-    """Path to a paper's AI study-notes (讲义) markdown, if it has been created."""
-    return settings.data_dir / "lectures" / f"{paper_id}.md"
+def _lecture_slug(raw: str | None) -> str:
+    """Sanitise a lecture variant slug; "" means the paper's main lecture."""
+    return "".join(ch for ch in (raw or "").strip() if ch.isalnum() or ch in "-_")
+
+
+def _lecture_file(settings: Settings, paper_id: str, variant: str | None = None) -> Path:
+    """Path to one of a paper's AI study-notes (讲义) markdown files.
+
+    A paper's main lecture is ``<paper_id>.md``; additional lectures on the same
+    paper live alongside it as ``<paper_id>__<slug>.md``. The double underscore
+    keeps the split unambiguous because a UUID never contains one.
+    """
+    slug = _lecture_slug(variant)
+    name = f"{paper_id}__{slug}.md" if slug else f"{paper_id}.md"
+    return settings.data_dir / "lectures" / name
+
+
+def _lecture_variants(settings: Settings, paper_id: str) -> list[dict[str, str]]:
+    """Every lecture attached to a paper, main one first, each with its title.
+
+    The title is the file's first ``# `` heading so the picker shows what the
+    author wrote rather than a slug.
+    """
+    variants: list[dict[str, str]] = []
+    for path in [_lecture_file(settings, paper_id), *sorted((settings.data_dir / "lectures").glob(f"{paper_id}__*.md"))]:
+        if not path.exists():
+            continue
+        slug = path.stem.split("__", 1)[1] if "__" in path.stem else ""
+        title = slug or "讲义"
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if line.startswith("# "):
+                    title = line[2:].strip()
+                    break
+        except OSError:
+            continue
+        variants.append({"slug": slug, "title": title})
+    return variants
+
+
+# 讲义交互组件资产(data/lectures/assets/<paper_id>/)的扩展名白名单 → media_type。
+# 名单外的一律 415:.md/.py/.sqlite3 之类即便放进了资产目录也不往外吐。
+LECTURE_ASSET_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".htm": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json",
+    ".csv": "text/csv; charset=utf-8",
+    ".txt": "text/plain; charset=utf-8",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".woff2": "font/woff2",
+}
+
+
+def _lecture_asset_file(settings: Settings, paper_id: str, asset_path: str) -> Path | None:
+    """Resolve a 讲义 widget asset under ``data/lectures/assets/<paper_id>/``.
+
+    Returns None for anything that lands outside that directory once resolved
+    (``..`` segments, absolute paths, symlinks pointing elsewhere); the route
+    answers those with the same 404 as a missing file, so a probe can't tell
+    "outside" from "absent".
+    """
+    base = (settings.data_dir / "lectures" / "assets" / paper_id).resolve()
+    try:
+        target = (base / asset_path).resolve()
+    except (OSError, ValueError):
+        return None
+    if target == base or not target.is_relative_to(base):
+        return None
+    return target
 
 
 def _card_sources(settings: Settings, service: LibraryService, paper) -> list[str]:  # type: ignore[no-untyped-def]
@@ -465,6 +613,8 @@ def _annotation_json(annotation) -> dict:  # type: ignore[no-untyped-def]
         "anchor": json.loads(annotation.anchor_json),
         "color": annotation.color,
         "note": annotation.note,
+        "is_favorite": annotation.is_favorite,
+        "last_viewed_at": _utc_isoformat(annotation.last_viewed_at) if annotation.last_viewed_at else None,
         "tags": [tag.name for tag in annotation.tags],
         "created_at": _utc_isoformat(annotation.created_at),
         "updated_at": _utc_isoformat(annotation.updated_at),

@@ -2,21 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <script>try { const t = localStorage.getItem('mylibrary-theme'); if (t) document.documentElement.dataset.theme = t; } catch(e) {}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Read · {{ paper.title }}</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
-  <link rel="stylesheet" href="/static/reader.css?v=6">
-  <link rel="stylesheet" href="/static/pdfview.css?v=6">
-  <link rel="stylesheet" href="/static/annotations.css?v=18">
+  <link rel="stylesheet" href="/static/reader.css?v=8">
+  <link rel="stylesheet" href="/static/pdfview.css?v=8">
+  <link rel="stylesheet" href="/static/annotations.css?v=23">
   <link rel="stylesheet" href="/static/vendor/katex/katex.min.css?v=1">
 </head>
 <body data-paper-id="{{ paper.id }}" data-pdf-url="/paper/{{ paper.id }}/pdf">
   <div id="reader-status" class="reader-status" role="status">Loading PDF…</div>
+  <div id="pdf-fallback" class="pdf-fallback" hidden role="alert">
+    <p id="pdf-fallback-message"></p>
+    <a href="/paper/{{ paper.id }}/pdf" target="_blank" rel="noopener">在系统浏览器中打开 PDF ↗</a>
+  </div>
   <main id="pdf-pages" class="pdf-pages" aria-label="PDF document"></main>
   <div class="reader-actions" aria-label="Paper actions">
+    <button type="button" id="theme-toggle" title="夜览模式" aria-label="夜览模式" aria-pressed="false">🌙</button>
     <button type="button" id="open-chatgpt" data-download-url="/paper/{{ paper.id }}/download" title="Download PDF and open a new ChatGPT conversation" aria-label="Download PDF and open ChatGPT">
       <img src="/static/openai-blossom.svg" alt="">
     </button>
+    <a href="/paper/{{ paper.id }}/pdf" target="_blank" rel="noopener" title="在系统浏览器中打开 PDF" aria-label="在系统浏览器中打开 PDF">↗</a>
   </div>
   <div id="zoom-controls" class="zoom-controls" aria-label="PDF zoom">
     <button type="button" data-zoom="out" title="Zoom out" aria-label="Zoom out">−</button>
@@ -32,6 +39,6 @@
   <script id="initial-annotations" type="application/json">{{ annotations|tojson }}</script>
   <script src="/static/vendor/marked/marked.min.js"></script>
   <script src="/static/vendor/katex/katex.min.js?v=1"></script>
-  <script type="module" src="/static/reader.js?v=44"></script>
+  <script type="module" src="/static/reader.js?v=99"></script>
 </body>
 </html>

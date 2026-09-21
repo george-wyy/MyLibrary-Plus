@@ -2,24 +2,149 @@
 <html lang="zh">
 <head>
   <meta charset="utf-8">
+  <script>try { const t = localStorage.getItem('mylibrary-theme'); if (t) document.documentElement.dataset.theme = t; } catch(e) {}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>对照阅读 · {{ paper.title }}</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
-  <link rel="stylesheet" href="/static/pdfview.css?v=6">
-  <link rel="stylesheet" href="/static/annotations.css?v=18">
+  <link rel="stylesheet" href="/static/pdfview.css?v=8">
+  <link rel="stylesheet" href="/static/annotations.css?v=23">
   <link rel="stylesheet" href="/static/vendor/katex/katex.min.css?v=1">
   <style>
+    :root {
+      /* 夜览模式 tokens for this document's inline styles. Shared tiers reuse
+         the same literal dark values as style.css/reader.css/pdfview.css/
+         annotations.css so every page draws from one palette. Several
+         near-identical originals were exactly equal (h1/h2 divider, a /
+         h3 / wikilink link color, td/th/backlinks border, figcaption /
+         study-loading / wikilink-pop-close / backlinks-title text) and share
+         one token below. */
+      --sd-body-bg: #eceef0;
+      --sd-body-text: #24292f;
+      --sd-pdf-bg: #dfe2e3;
+      --sd-pdf-border: #cfd3d6;
+      --sd-status-bg: #f7f7f4e8;
+      --sd-status-border: #ccd1d2;
+      --sd-status-text: #566268;
+      --sd-notes-bg: #fff;
+      --sd-md-divider: #eaecef;
+      --sd-link: #2f5b8a;
+      --sd-md-text: #2b3238;
+      --sd-md-code-bg: #f2f4f6;
+      --sd-md-pre-bg: #f6f8fa;
+      --sd-md-quote-text: #57606a;
+      --sd-md-border: #d0d7de;
+      --sd-md-img-border: #e2e5e7;
+      --sd-md-figure-bg: #f7f9fb;
+      --sd-md-figure-border: #e6eaee;
+      --sd-md-faint-text: #6b7379;
+      --sd-bgbox-bg: #fff8ec;
+      --sd-bgbox-border: #f0dcae;
+      --sd-bgbox-accent: #e3a325;
+      --sd-bgbox-title: #a56a08;
+      --sd-rev-mix-base: white;
+      --sd-wikilink-bg: #eaf1f8;
+      --sd-wikilink-border: #cddef0;
+      --sd-wikilink-hover-bg: #d7e6f5;
+      --sd-wikilink-hover-border: #a9c8e6;
+      --sd-popover-border: #cfd6dd;
+      --sd-popover-head-bg: #f3f6f9;
+      --sd-popover-head-border: #e3e8ed;
+      --sd-note-detail-bg: #fbfaf3;
+      --sd-note-detail-border: #e6e2cf;
+      --sd-note-detail-meta: #8a8f94;
+      --sd-note-reply-bg: #eef1f4;
+      --sd-note-reply-assistant-bg: #eaf4ec;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --sd-body-bg: #1a1d1f;
+        --sd-body-text: #e6e6e6;
+        --sd-pdf-bg: #1a1d1f;
+        --sd-pdf-border: #383e42;
+        --sd-status-bg: #232729ee;
+        --sd-status-border: #40474c;
+        --sd-status-text: #b9c0c4;
+        --sd-notes-bg: #232729;
+        --sd-md-divider: #383e42;
+        --sd-link: #8fb3c7;
+        --sd-md-text: #e6e6e6;
+        --sd-md-code-bg: #2b3033;
+        --sd-md-pre-bg: #262b2d;
+        --sd-md-quote-text: #b9c0c4;
+        --sd-md-border: #40474c;
+        --sd-md-img-border: #383e42;
+        --sd-md-figure-bg: #232729;
+        --sd-md-figure-border: #383e42;
+        --sd-md-faint-text: #8b9296;
+        --sd-bgbox-bg: #332c1c;
+        --sd-bgbox-border: #5a4a27;
+        --sd-bgbox-accent: #b8862f;
+        --sd-bgbox-title: #d9a44e;
+        --sd-rev-mix-base: #232729;
+        --sd-wikilink-bg: #22323b;
+        --sd-wikilink-border: #3f5866;
+        --sd-wikilink-hover-bg: #2a3f49;
+        --sd-wikilink-hover-border: #4d7188;
+        --sd-popover-border: #40474c;
+        --sd-popover-head-bg: #262b2d;
+        --sd-popover-head-border: #383e42;
+        --sd-note-detail-bg: #2b2a20;
+        --sd-note-detail-border: #4a4530;
+        --sd-note-detail-meta: #8b9296;
+        --sd-note-reply-bg: #262b2d;
+        --sd-note-reply-assistant-bg: #1f2f26;
+      }
+    }
+    :root[data-theme="dark"] {
+      --sd-body-bg: #1a1d1f;
+      --sd-body-text: #e6e6e6;
+      --sd-pdf-bg: #1a1d1f;
+      --sd-pdf-border: #383e42;
+      --sd-status-bg: #232729ee;
+      --sd-status-border: #40474c;
+      --sd-status-text: #b9c0c4;
+      --sd-notes-bg: #232729;
+      --sd-md-divider: #383e42;
+      --sd-link: #8fb3c7;
+      --sd-md-text: #e6e6e6;
+      --sd-md-code-bg: #2b3033;
+      --sd-md-pre-bg: #262b2d;
+      --sd-md-quote-text: #b9c0c4;
+      --sd-md-border: #40474c;
+      --sd-md-img-border: #383e42;
+      --sd-md-figure-bg: #232729;
+      --sd-md-figure-border: #383e42;
+      --sd-md-faint-text: #8b9296;
+      --sd-bgbox-bg: #332c1c;
+      --sd-bgbox-border: #5a4a27;
+      --sd-bgbox-accent: #b8862f;
+      --sd-bgbox-title: #d9a44e;
+      --sd-rev-mix-base: #232729;
+      --sd-wikilink-bg: #22323b;
+      --sd-wikilink-border: #3f5866;
+      --sd-wikilink-hover-bg: #2a3f49;
+      --sd-wikilink-hover-border: #4d7188;
+      --sd-popover-border: #40474c;
+      --sd-popover-head-bg: #262b2d;
+      --sd-popover-head-border: #383e42;
+      --sd-note-detail-bg: #2b2a20;
+      --sd-note-detail-border: #4a4530;
+      --sd-note-detail-meta: #8b9296;
+      --sd-note-reply-bg: #262b2d;
+      --sd-note-reply-assistant-bg: #1f2f26;
+    }
     * { box-sizing: border-box; }
     /* overflow:hidden on BOTH html and body: the page itself must never
        scroll (the two panes scroll internally). body alone is not enough -
        anything that still overflows would scroll the viewport and carry the
        header off-screen. */
     html, body { margin: 0; height: 100%; overflow: hidden; }
-    body { display: flex; flex-direction: column; font: 16px/1.65 -apple-system, "PingFang SC", "Segoe UI", system-ui, sans-serif; color: #24292f; background: #eceef0; }
+    body { display: flex; flex-direction: column; font: 16px/1.65 -apple-system, "PingFang SC", "Segoe UI", system-ui, sans-serif; color: var(--sd-body-text); background: var(--sd-body-bg); }
     .study-head { flex: none; display: flex; align-items: center; gap: 1rem; padding: .55rem .9rem; background: #2f393e; color: #eef1f2; }
     .study-head .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .98rem; font-weight: 600; }
-    .study-head a { color: #cfe0ea; text-decoration: none; font-size: .85rem; padding: .3rem .6rem; border: 1px solid #ffffff33; border-radius: 6px; white-space: nowrap; }
-    .study-head a:hover { background: #ffffff1a; }
+    .study-head a, .study-head-theme-toggle { color: #cfe0ea; text-decoration: none; font-size: .85rem; padding: .3rem .6rem; border: 1px solid #ffffff33; border-radius: 6px; white-space: nowrap; }
+    .study-head-theme-toggle { background: transparent; cursor: pointer; font: inherit; }
+    .study-head a:hover, .study-head-theme-toggle:hover { background: #ffffff1a; }
     .view-switch { flex: none; display: flex; gap: .15rem; padding: .15rem; background: #ffffff0d; border: 1px solid #ffffff26; border-radius: 8px; }
     .view-switch button { padding: .28rem .6rem; color: #cfe0ea; background: transparent; border: 0; border-radius: 6px; font-size: .82rem; cursor: pointer; }
     .view-switch button:hover { background: #ffffff1a; }
@@ -27,20 +152,61 @@
     .study-split { flex: 1; display: flex; min-height: 0; }
     .study-split.view-pdf .study-notes-wrap, .study-split.view-notes .study-pdf { display: none; }
     .study-split.view-pdf .study-pdf, .study-split.view-notes .study-notes-wrap { flex: 1 1 100%; border-right: 0; }
+    /* 上下分屏:与下方 820px 断点强制的堆叠布局同构,但这里是用户可切换的偏好
+       (见 study.js 的 layout-toggle),不依赖视口宽度。specificity 天然高于
+       .study-pdf 的默认 border-right,所以不需要在意源码顺序。
+       flex-basis 显式改成 0(而不是继承基础规则的 50%):列方向下 50% 是按高度
+       解析的百分比,而 .study-split 的高度本身只是 flex-grow 撑出来的,浏览器
+       不把它当作"确定尺寸",百分比 basis 会退化成按内容撑开 —— 正是上面
+       .study-notes-wrap/.study-notes 那段 min-height:0 注释描述的同一个坑,
+       只是主轴换成了纵向。basis:0 完全不依赖百分比解析,用纯 flex-grow 均分,
+       不会退化。min-height:0 在这里是防御性的(仅 study-notes 侧是真正必需的),
+       两侧都写上避免以后谁改了内容结构又踩回这个坑。 */
+    .study-split.layout-vertical { flex-direction: column; }
+    .study-split.layout-vertical .study-pdf,
+    .study-split.layout-vertical .study-notes-wrap { flex: 1 1 0; min-height: 0; }
+    .study-split.layout-vertical .study-pdf { border-right: 0; border-bottom: 3px solid var(--sd-pdf-border); }
     /* Left pane hosts the same pdf.js viewer as the reader. The pane itself
        stays static; a separate inner element is the scroll container, so
        overlays positioned absolute against the pane (zoom controls, status)
        don't get carried along by the pane's own scrolling - same split the
        notes column already uses (.study-notes-wrap vs .study-notes). */
-    .study-pdf { position: relative; flex: 1 1 50%; min-width: 0; border-right: 3px solid #cfd3d6; background: #dfe2e3; }
+    .study-pdf { position: relative; flex: 1 1 50%; min-width: 0; border-right: 3px solid var(--sd-pdf-border); background: var(--sd-pdf-bg); }
     .study-pdf-scroll { position: absolute; inset: 0; overflow: auto; }
     .study-pdf .pdf-pages { padding: 1rem .6rem 3rem; gap: 1rem; }
     .study-pdf .zoom-controls { position: absolute; right: .7rem; bottom: .7rem; }
     .study-pdf .pdf-page-layout-toggle { position: absolute; right: .7rem; bottom: 3.55rem; }
     .study-pdf .pdf-toc-toggle { position: absolute; top: .7rem; left: .7rem; }
     .study-pdf .pdf-toc { position: absolute; top: .7rem; left: .7rem; bottom: .7rem; box-shadow: 0 4px 18px #00000030; }
-    .study-pdf-status { position: absolute; top: .5rem; left: 50%; z-index: 20; transform: translateX(-50%); padding: .3rem .7rem; color: #566268; background: #f7f7f4e8; border: 1px solid #ccd1d2; border-radius: 999px; font-size: .76rem; white-space: nowrap; pointer-events: none; }
+    /* 正文/SI 等附件切换:与 zoom-controls/pdf-toc-toggle 同一套深色胶囊配色
+       (pdfview.css 里那些也是字面色值,不走主题 token),放在右上角避开
+       左上角的目录按钮和右下角的缩放/双页控件。 */
+    .pdf-file-select-wrap { position: absolute; top: .7rem; right: .7rem; z-index: 20; }
+    .pdf-file-select-wrap select { max-width: 12rem; height: 2.1rem; padding: 0 .5rem; color: #f3f5f5; background: #303a3fe8; border: 1px solid #ffffff22; border-radius: 8px; box-shadow: 0 3px 14px #0004; font-size: .78rem; cursor: pointer; }
+    .pdf-file-select-wrap select:hover { background: #3a454bea; }
+    /* Lecture-side outline mirrors the PDF-side one above but is scoped to
+       .study-notes-wrap (a second, independent panel - see #lecture-toc). */
+    .study-notes-wrap .pdf-toc-toggle { position: absolute; top: .7rem; left: .7rem; }
+    /* Lecture picker: only rendered when a paper carries more than one 讲义.
+       Mirrors .pdf-file-select-wrap but anchored to the notes pane instead. */
+    /* 讲义里跳转到左侧 PDF 的链接：和概念卡链接区分开（那个是 🔗，这个是 ▸） */
+    .markdown-body a[href^="#pdf"] { color: var(--sd-link); text-decoration: none; border-bottom: 1px dashed currentColor; cursor: pointer; }
+    .markdown-body a[href^="#pdf"]::before { content: "▸ "; opacity: .7; }
+    .markdown-body a.pdf-jump-missing { color: #e5484d; border-bottom-style: solid; }
+    .lecture-select-wrap { position: absolute; top: .7rem; right: .7rem; z-index: 20; }
+    .lecture-select-wrap select { max-width: 14rem; height: 2.1rem; padding: 0 .5rem; color: #f3f5f5; background: #303a3fe8; border: 1px solid #ffffff22; border-radius: 8px; box-shadow: 0 3px 14px #0004; font-size: .78rem; cursor: pointer; }
+    .lecture-select-wrap select:hover { background: #3a454bea; }
+    .study-notes-wrap .pdf-toc { position: absolute; top: .7rem; left: .7rem; bottom: .7rem; box-shadow: 0 4px 18px #00000030; }
+    .study-pdf-status { position: absolute; top: .5rem; left: 50%; z-index: 20; transform: translateX(-50%); padding: .3rem .7rem; color: var(--sd-status-text); background: var(--sd-status-bg); border: 1px solid var(--sd-status-border); border-radius: 999px; font-size: .76rem; white-space: nowrap; pointer-events: none; }
     .study-pdf-status[hidden] { display: none; }
+    /* Shown instead of study-pdf-status when rendering the PDF actually
+       fails or times out - unlike that status pill this wraps and is
+       clickable, so it can carry a real error message plus an escape
+       hatch link (see startPdfView()'s render timeout / .catch in study.js). */
+    .pdf-fallback { position: absolute; top: 3rem; left: 50%; z-index: 25; max-width: min(90%, 22rem); transform: translateX(-50%); padding: .65rem .85rem; color: var(--sd-status-text); background: var(--sd-status-bg); border: 1px solid var(--sd-status-border); border-radius: 10px; box-shadow: 0 2px 10px #0002; font-size: .78rem; line-height: 1.4; text-align: center; }
+    .pdf-fallback[hidden] { display: none; }
+    .pdf-fallback p { margin: 0 0 .45rem; word-break: break-word; }
+    .pdf-fallback a { display: inline-flex; align-items: center; gap: .3rem; padding: .3rem .7rem; border-radius: 6px; background: #fff; border: 1px solid var(--sd-status-border); color: var(--sd-link); text-decoration: none; font-weight: 600; }
     /* The notes column and its own zoom control, which scales the lecture text. */
     /* min-height:0 on both is load-bearing: a flex item's default min-height
        is auto, so the notes column would grow to its full content height
@@ -48,65 +214,117 @@
        That leaked height made the whole <body> scrollable, which scrolled the
        fixed header out of view and looked like the pane "scrolling the page". */
     .study-notes-wrap { position: relative; display: flex; flex: 1 1 50%; min-width: 0; min-height: 0; }
-    .study-notes { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; background: #fff; }
+    .study-notes { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; background: var(--sd-notes-bg); }
     .notes-zoom { position: absolute; right: .7rem; bottom: .7rem; opacity: .4; transition: opacity .15s ease; }
     .study-notes-wrap:hover .notes-zoom, .notes-zoom:focus-within { opacity: 1; }
     /* Everything inside the notes column is sized in em so the whole column
        scales from one font-size on #lecture (see the notes zoom control). */
     .markdown-body { max-width: 47.5em; margin: 0 auto; padding: 2em 2.4em 5em; }
-    .markdown-body h1 { font-size: 1.7em; margin: 0 0 1rem; padding-bottom: .3em; border-bottom: 2px solid #eaecef; line-height: 1.35; }
-    .markdown-body h2 { font-size: 1.32em; margin: 1.5em 0 .6em; padding-bottom: .22em; border-bottom: 1px solid #eaecef; }
-    .markdown-body h3 { font-size: 1.1em; margin: 1.3em 0 .45em; color: #2f5b8a; }
-    .markdown-body p, .markdown-body li { color: #2b3238; }
+    .markdown-body h1 { font-size: 1.7em; margin: 0 0 1rem; padding-bottom: .3em; border-bottom: 2px solid var(--sd-md-divider); line-height: 1.35; }
+    .markdown-body h2 { font-size: 1.32em; margin: 1.5em 0 .6em; padding-bottom: .22em; border-bottom: 1px solid var(--sd-md-divider); }
+    .markdown-body h3 { font-size: 1.1em; margin: 1.3em 0 .45em; color: var(--sd-link); }
+    .markdown-body p, .markdown-body li { color: var(--sd-md-text); }
     .markdown-body ul, .markdown-body ol { padding-left: 1.4em; }
     .markdown-body li { margin: .3em 0; }
-    .markdown-body code { background: #f2f4f6; padding: .12em .38em; border-radius: 4px; font-size: .88em; }
-    .markdown-body pre { background: #f6f8fa; padding: 1em; border-radius: 8px; overflow-x: auto; }
+    .markdown-body code { background: var(--sd-md-code-bg); padding: .12em .38em; border-radius: 4px; font-size: .88em; }
+    .markdown-body pre { background: var(--sd-md-pre-bg); padding: 1em; border-radius: 8px; overflow-x: auto; }
     .markdown-body pre code { background: none; padding: 0; }
-    .markdown-body blockquote { margin: 1em 0; padding: .3em 1em; color: #57606a; border-left: 4px solid #d0d7de; background: #f6f8fa; border-radius: 0 6px 6px 0; }
-    .markdown-body img { max-width: 100%; height: auto; display: block; margin: .3em auto; border: 1px solid #e2e5e7; border-radius: 6px; background: #fff; }
-    .markdown-body figure { margin: 1.4em 0; padding: .8em; background: #f7f9fb; border: 1px solid #e6eaee; border-radius: 8px; }
-    .markdown-body figcaption { margin-top: .5em; font-size: .85em; color: #6b7379; text-align: center; }
-    .markdown-body .bg-box { margin: 1.2em 0; padding: .8em 1.1em; background: #fff8ec; border: 1px solid #f0dcae; border-left: 4px solid #e3a325; border-radius: 0 8px 8px 0; }
+    .markdown-body blockquote { margin: 1em 0; padding: .3em 1em; color: var(--sd-md-quote-text); border-left: 4px solid var(--sd-md-border); background: var(--sd-md-pre-bg); border-radius: 0 6px 6px 0; }
+    .markdown-body img { max-width: 100%; height: auto; display: block; margin: .3em auto; border: 1px solid var(--sd-md-img-border); border-radius: 6px; background: var(--sd-notes-bg); }
+    .markdown-body figure { margin: 1.4em 0; padding: .8em; background: var(--sd-md-figure-bg); border: 1px solid var(--sd-md-figure-border); border-radius: 8px; }
+    .markdown-body figcaption { margin-top: .5em; font-size: .85em; color: var(--sd-md-faint-text); text-align: center; }
+    .markdown-body .bg-box { margin: 1.2em 0; padding: .8em 1.1em; background: var(--sd-bgbox-bg); border: 1px solid var(--sd-bgbox-border); border-left: 4px solid var(--sd-bgbox-accent); border-radius: 0 8px 8px 0; }
     .markdown-body .bg-box > :first-child { margin-top: 0; }
     .markdown-body .bg-box > :last-child { margin-bottom: 0; }
-    .markdown-body .bg-box .bg-title { font-weight: 700; color: #a56a08; font-size: .9em; }
+    .markdown-body .bg-box .bg-title { font-weight: 700; color: var(--sd-bgbox-title); font-size: .9em; }
+    /* 修订标记：像Word修订竖线一样，左侧竖线+小版本号标签，标出"这段是哪一版新增/改动的"。
+       每次修订用新的 .rev-vN（N递增），配色循环，不需要逐版单独定义。 rev-vN accent
+       colors are left as literal per-revision identity colors (like the
+       annotation highlight palette) rather than themed - only the
+       color-mix() white base is swapped for --sd-rev-mix-base so the tag
+       chip still reads against a dark page. */
+    .markdown-body .rev { margin: 1em 0; padding: .6em 1em .6em 1.1em; border-left: 3px solid var(--rev-color, #6b7379); background: var(--rev-bg, #f6f8fa); border-radius: 0 6px 6px 0; }
+    .markdown-body .rev > :first-child { margin-top: 0; }
+    .markdown-body .rev > :last-child { margin-bottom: 0; }
+    /* .rev-bg stays a literal light tint in both themes (by design, see above) -
+       but .markdown-body p/li's own color goes light (--sd-md-text) in dark
+       mode, which collides with that still-light background and reads as
+       near-invisible pale-on-pale text. Pin readable dark text here,
+       independent of theme, so the body copy inside a .rev block stays
+       legible regardless of which theme is active.
+       Direct-child combinators only (not a plain descendant selector): a
+       .rev can itself contain a nested .bg-box/blockquote/pre, and those
+       already carry their own correctly dark-mode-themed background+text
+       pairing - a bare ".rev p" would reach into them too and force this
+       same dark text onto their (legitimately dark, in dark mode) own
+       background, producing the same illegible pale/dark-on-dark collision
+       one level down instead of fixing it. */
+    .markdown-body .rev { color: #2b3238; }
+    .markdown-body .rev > p, .markdown-body .rev > li,
+    .markdown-body .rev > ul > li, .markdown-body .rev > ol > li { color: #2b3238; }
+    /* table/code/pre are transparent-background-less exceptions to the rule
+       above: unlike a bare p/li (which sits directly on .rev's still-light
+       background and needs the dark text), th/code/pre paint their OWN
+       background (var(--sd-md-pre-bg)/var(--sd-md-code-bg), correctly dark
+       in dark mode) but have no explicit color of their own - so without
+       this, they'd inherit .rev's forced dark text via the rule above and
+       land back in the same dark-on-dark collision one level down (this is
+       exactly what broke the symbol-table header and the inline math
+       badges: at any nesting depth under .rev, not just direct children). */
+    .markdown-body .rev th, .markdown-body .rev code, .markdown-body .rev pre { color: var(--sd-md-text); }
+    .markdown-body .rev-tag { display: inline-block; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .68em; font-weight: 700; letter-spacing: .02em; color: var(--rev-color, #6b7379); background: color-mix(in srgb, var(--rev-color, #6b7379) 14%, var(--sd-rev-mix-base)); border-radius: 3px; padding: .1em .45em; margin-bottom: .35em; }
+    .markdown-body .rev-v1 { --rev-color: #2f7d5a; --rev-bg: #f2f8f5; }
+    .markdown-body .rev-v2 { --rev-color: #3d5a80; --rev-bg: #f2f5fa; }
+    .markdown-body .rev-v3 { --rev-color: #a8354e; --rev-bg: #fbf1f3; }
+    .markdown-body .rev-v4 { --rev-color: #a56a08; --rev-bg: #fdf6ea; }
+    .markdown-body .rev-v5 { --rev-color: #6b4fa0; --rev-bg: #f6f2fa; }
+    /* 讲义里的 ```widget 交互组件(见 study.js 的 renderWidgetBlocks):外框 + 标题行 +
+       iframe。配色全走 figure/pre/bg-box 那套主题 token,深浅色都可读;iframe 底色用
+       --sd-notes-bg,组件自己不画背景时深色模式下也不会露出一块白。出错提示框沿用
+       .bg-box 的左侧粗竖线样式,字面浅底深字,两种主题下都读得清(同 .rev 的取舍)。 */
+    .markdown-body .lecture-widget { margin: 1.4em 0; border: 1px solid var(--sd-md-figure-border); border-radius: 8px; overflow: hidden; background: var(--sd-md-figure-bg); }
+    .markdown-body .lecture-widget-head { display: flex; align-items: center; gap: .8em; padding: .45em .9em; background: var(--sd-md-pre-bg); border-bottom: 1px solid var(--sd-md-figure-border); font-size: .85em; line-height: 1.4; }
+    .markdown-body .lecture-widget-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--sd-link); }
+    .markdown-body .lecture-widget-open { flex: none; color: var(--sd-md-faint-text); text-decoration: none; font-size: .92em; }
+    .markdown-body .lecture-widget-open:hover { color: var(--sd-link); text-decoration: underline; }
+    .markdown-body .lecture-widget-frame { display: block; width: 100%; border: 0; background: var(--sd-notes-bg); }
+    .markdown-body .lecture-widget-error { padding: .7em 1em; color: #9f1d1d; background: #fdf2f2; border-color: #f1c4c4; border-left: 4px solid #d64545; border-radius: 0 8px 8px 0; font-size: .88em; }
     .markdown-body table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: .92em; }
-    .markdown-body th, .markdown-body td { border: 1px solid #d0d7de; padding: .45em .7em; text-align: left; }
-    .markdown-body th { background: #f6f8fa; }
-    .markdown-body a { color: #2f5b8a; }
-    .study-loading { padding: 2rem; color: #6b7379; }
-    .markdown-body .wikilink { font: inherit; color: #2f5b8a; background: #eaf1f8; border: 1px solid #cddef0; border-radius: 4px; padding: 0 .3rem; margin: 0 .05rem; cursor: pointer; }
-    .markdown-body .wikilink:hover { background: #d7e6f5; border-color: #a9c8e6; }
+    .markdown-body th, .markdown-body td { border: 1px solid var(--sd-md-border); padding: .45em .7em; text-align: left; }
+    .markdown-body th { background: var(--sd-md-pre-bg); }
+    .markdown-body a { color: var(--sd-link); }
+    .study-loading { padding: 2rem; color: var(--sd-md-faint-text); }
+    .markdown-body .wikilink { font: inherit; color: var(--sd-link); background: var(--sd-wikilink-bg); border: 1px solid var(--sd-wikilink-border); border-radius: 4px; padding: 0 .3rem; margin: 0 .05rem; cursor: pointer; }
+    .markdown-body .wikilink:hover { background: var(--sd-wikilink-hover-bg); border-color: var(--sd-wikilink-hover-border); }
     .markdown-body .wikilink::before { content: "🔗"; font-size: .72em; margin-right: .12rem; opacity: .55; }
     /* The popover is a fixed frame that never scrolls itself: only the body
        scrolls, so the drag handles stay pinned to the edges. */
     /* z-index 120 keeps the popover above the annotation panel (80); the
        inline composer (150) still sits above it so note text stays annotatable. */
-    .wikilink-popover { display: flex; flex-direction: column; overflow: hidden; background: #fff; border: 1px solid #cfd6dd; border-radius: 10px; box-shadow: 0 14px 40px #00000038; }
-    .wikilink-pop-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem .8rem; background: #f3f6f9; border-bottom: 1px solid #e3e8ed; cursor: move; }
-    .wikilink-pop-title { font-weight: 700; font-size: .92rem; color: #2f5b8a; }
-    .wikilink-pop-close { border: 0; background: transparent; font-size: 1.25rem; line-height: 1; color: #6b7379; cursor: pointer; padding: 0 .2rem; }
+    .wikilink-popover { display: flex; flex-direction: column; overflow: hidden; background: var(--sd-notes-bg); border: 1px solid var(--sd-popover-border); border-radius: 10px; box-shadow: 0 14px 40px #00000038; }
+    .wikilink-pop-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem .8rem; background: var(--sd-popover-head-bg); border-bottom: 1px solid var(--sd-popover-head-border); cursor: move; }
+    .wikilink-pop-title { font-weight: 700; font-size: .92rem; color: var(--sd-link); }
+    .wikilink-pop-close { border: 0; background: transparent; font-size: 1.25rem; line-height: 1; color: var(--sd-md-faint-text); cursor: pointer; padding: 0 .2rem; }
     .wikilink-pop-body { flex: 1; min-height: 0; overflow-y: auto; padding: .6rem 1.1rem 1.2rem; max-width: none; margin: 0; }
     .wikilink-pop-body h1 { font-size: 1.15rem; border: 0; margin: .3rem 0 .6rem; padding: 0; }
-    .wikilink-backlinks { margin-top: 1rem; padding-top: .6rem; border-top: 1px dashed #d0d7de; font-size: .85rem; }
-    .wikilink-backlinks .bl-title { color: #6b7379; font-weight: 600; }
+    .wikilink-backlinks { margin-top: 1rem; padding-top: .6rem; border-top: 1px dashed var(--sd-md-border); font-size: .85rem; }
+    .wikilink-backlinks .bl-title { color: var(--sd-md-faint-text); font-weight: 600; }
     .wikilink-backlinks ul { margin: .3rem 0 0; padding-left: 1.2rem; }
     .note-annotation-mark { background: #ffec99; border-radius: 2px; cursor: pointer; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
-    .note-detail { margin: .9rem 0 0; padding: .6rem .8rem; background: #fbfaf3; border: 1px solid #e6e2cf; border-radius: 8px; font-size: .9rem; }
+    .note-detail { margin: .9rem 0 0; padding: .6rem .8rem; background: var(--sd-note-detail-bg); border: 1px solid var(--sd-note-detail-border); border-radius: 8px; font-size: .9rem; }
     .note-detail-head { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; }
-    .note-detail-paper { color: #8a8f94; font-size: .8rem; font-weight: 400; }
-    .note-detail-close { margin-left: auto; border: 0; background: transparent; font-size: 1.1rem; line-height: 1; color: #8a8f94; cursor: pointer; padding: 0 .2rem; }
-    .note-detail-note { color: #2b3238; white-space: pre-wrap; }
+    .note-detail-paper { color: var(--sd-note-detail-meta); font-size: .8rem; font-weight: 400; }
+    .note-detail-close { margin-left: auto; border: 0; background: transparent; font-size: 1.1rem; line-height: 1; color: var(--sd-note-detail-meta); cursor: pointer; padding: 0 .2rem; }
+    .note-detail-note { color: var(--sd-md-text); white-space: pre-wrap; }
     .note-detail-replies { margin-top: .4rem; display: grid; gap: .3rem; }
-    .note-reply { padding: .3rem .5rem; border-radius: 6px; background: #eef1f4; font-size: .85rem; }
-    .note-reply-assistant { background: #eaf4ec; }
+    .note-reply { padding: .3rem .5rem; border-radius: 6px; background: var(--sd-note-reply-bg); font-size: .85rem; }
+    .note-reply-assistant { background: var(--sd-note-reply-assistant-bg); }
     .note-reply-form { margin-top: .5rem; display: flex; gap: .4rem; }
-    .note-reply-input { flex: 1; resize: vertical; padding: .35rem .5rem; border: 1px solid #cfd6dd; border-radius: 6px; font: inherit; font-size: .85rem; }
+    .note-reply-input { flex: 1; resize: vertical; padding: .35rem .5rem; border: 1px solid var(--sd-popover-border); border-radius: 6px; font: inherit; font-size: .85rem; }
     .note-reply-send { border: 0; background: #2f5b8a; color: #fff; border-radius: 6px; padding: 0 .8rem; cursor: pointer; }
     @media (max-width: 820px) {
       .study-split { flex-direction: column; }
-      .study-pdf { flex: 1 1 45vh; border-right: 0; border-bottom: 3px solid #cfd3d6; }
+      .study-pdf { flex: 1 1 45vh; border-right: 0; border-bottom: 3px solid var(--sd-pdf-border); }
       .markdown-body { padding: 1.3em 1.1em 4em; }
     }
   </style>
@@ -119,7 +337,10 @@
       <button type="button" data-view="both" title="对照阅读">对照</button>
       <button type="button" data-view="notes" title="只看讲义">讲义</button>
     </div>
+    <button type="button" id="layout-toggle" class="study-head-theme-toggle" title="切换为上下分屏" aria-label="切换分屏方向" aria-pressed="false">⬍</button>
+    <button type="button" id="theme-toggle" class="study-head-theme-toggle" title="夜览模式" aria-label="夜览模式" aria-pressed="false">🌙</button>
     <a href="/paper/{{ paper.id }}/read" target="_blank">阅读器</a>
+    <a href="/paper/{{ paper.id }}/pdf" target="_blank" rel="noopener" title="在系统浏览器中打开 PDF">↗ PDF</a>
     <a href="/paper/{{ paper.id }}">详情</a>
     <a href="/">← 时间线</a>
   </header>
@@ -129,6 +350,21 @@
         <div id="pdf-pages" class="pdf-pages" aria-label="PDF document"></div>
       </div>
       <div id="pdf-status" class="study-pdf-status" role="status">PDF 加载中…</div>
+      <div id="pdf-fallback" class="pdf-fallback" hidden role="alert">
+        <p id="pdf-fallback-message"></p>
+        <a href="/paper/{{ paper.id }}/pdf" target="_blank" rel="noopener">在系统浏览器中打开 PDF ↗</a>
+      </div>
+      {% if paper.files|length > 1 %}
+      <div id="pdf-file-select-wrap" class="pdf-file-select-wrap">
+        <select id="pdf-file-select" aria-label="选择要查看的 PDF 文件">
+          {% set ns = namespace(n=0) %}
+          {% for f in paper.files %}
+          {% if not f.is_primary %}{% set ns.n = ns.n + 1 %}{% endif %}
+          <option value="{{ f.id }}"{% if f.id == selected_file_id %} selected{% endif %}>{{ "正文 PDF" if f.is_primary else "附件 " ~ ns.n }} · {{ "%.1f"|format(f.size_bytes / 1048576) }} MB</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <div id="zoom-controls" class="zoom-controls" aria-label="PDF zoom">
         <button type="button" data-zoom="out" title="缩小" aria-label="缩小">−</button>
         <button type="button" id="zoom-display" data-zoom="reset" title="适应宽度">100%</button>
@@ -148,10 +384,19 @@
         <button type="button" id="notes-zoom-display" data-notes-zoom="reset" title="恢复默认字号">100%</button>
         <button type="button" data-notes-zoom="in" title="讲义放大" aria-label="讲义放大">A+</button>
       </div>
+      <div id="lecture-select-wrap" class="lecture-select-wrap" hidden>
+        <select id="lecture-select" aria-label="选择要阅读的讲义"></select>
+      </div>
+      <button type="button" id="lecture-toc-toggle" class="pdf-toc-toggle" title="讲义目录" aria-label="讲义目录" hidden>☰ 目录</button>
+      <div id="lecture-toc" class="pdf-toc" hidden aria-label="讲义目录">
+        <div class="pdf-toc-head"><span>目录</span><button type="button" class="pdf-toc-close" aria-label="关闭目录">×</button></div>
+        <div class="pdf-toc-body"></div>
+      </div>
     </div>
   </div>
   <script src="/static/vendor/marked/marked.min.js"></script>
   <script src="/static/vendor/katex/katex.min.js?v=1"></script>
-  <script type="module" src="/static/study.js?v=43"></script>
+  <script src="/static/vendor/mermaid/mermaid.min.js"></script>
+  <script type="module" src="/static/study.js?v=77"></script>
 </body>
 </html>

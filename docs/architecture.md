@@ -142,18 +142,27 @@ fine for a single-user SQLite file, not for concurrent multi-writer use.
 
 | File | Owns |
 |---|---|
-| `app.js` | Timeline page glue: "mark done" toggle, small non-reader interactions |
-| `pdfview.js` | pdf.js viewer shared by the reader and study view: rendering, zoom, outline/TOC, figure hotspots, PDF-anchored highlight rects |
-| `reader.js` | Standalone `/paper/{id}/read` page: wires `PdfView` + `AnnotationPanel`, "download PDF and open ChatGPT" |
-| `study.js` | `/paper/{id}/study` split view: PDF pane + lecture Markdown pane, view-mode switch, notes zoom, `[[wikilink]]` popovers, lecture/note text-offset annotation anchoring |
-| `annotations.js` | `AnnotationPanel` — sidebar/floating-window UI shared by reader and study view: CRUD, tags, replies, "copy AI context" |
+| `app.js` | Timeline page glue: "mark done" toggle, theme toggle, small non-reader interactions |
+| `pdfview.js` | pdf.js viewer shared by the reader and study view: rendering, zoom, outline/TOC, figure hotspots + region-selection annotations, PDF-anchored highlight rects, the supplemental-file picker |
+| `reader.js` | Standalone `/paper/{id}/read` page: wires `PdfView` + `AnnotationPanel`, theme toggle, "download PDF and open ChatGPT" |
+| `study.js` | `/paper/{id}/study` split view: PDF pane + lecture Markdown pane, lecture picker (`?variant=`), 左右/上下 layout switch, view-mode switch, notes zoom, `[[wikilink]]` popovers, ` ```widget ` iframes, lecture/note text-offset annotation anchoring |
+| `annotations.js` | `AnnotationPanel` — sidebar/floating-window UI shared by reader and study view: CRUD, tags, replies, favorite/unread/pending filters, float font size, "copy AI context" |
 | `annotation-colors.mjs` | The 8-color palette shared by the picker and highlight rendering |
-| `annotation-interaction.mjs` | Pure hit-testing/selection helpers (which annotation a click landed on) |
-| `annotation-metadata.mjs` | Tag parsing, timestamp formatting, panel-selection reconciliation |
+| `annotation-interaction.mjs` | Pure hit-testing/selection helpers (which annotation a click landed on) and float-mode/font-size preferences |
+| `annotation-metadata.mjs` | Tag parsing, timestamp formatting, annotation status (favorite / unread / waiting for the AI), panel-selection reconciliation |
 | `annotation-form-state.mjs` | Disables/restores form controls during an in-flight save |
+| `lecture-widget.mjs` | Pure parsing/validation for ` ```widget ` blocks → `{url, height, title}` |
+| `theme.mjs` | The system / light / dark toggle (shared by `app.js`, `reader.js`, `study.js`) |
 | `floating-window.mjs` | Generic draggable/resizable window (annotation float, wikilink popover) |
 | `math-markdown.mjs` | Masks `$..$`/`$$..$$`/`\(..\)`/`\[..\]` before Marked runs, renders them with vendored KaTeX, sanitizes the resulting HTML |
 | `vendor/` | Vendored third-party libs (pdf.js, marked, KaTeX, mermaid) — no CDN at runtime |
+
+Dark mode is token-based: each stylesheet declares light values in `:root` and the
+same variable names under `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }`
+and `:root[data-theme="dark"]`, and `theme.mjs` only sets/deletes
+`<html data-theme>`. Every page head carries a tiny inline script that reads
+`localStorage['mylibrary-theme']` before first paint, so a dark-mode reload never
+flashes white.
 
 ## Where data lives on disk
 
@@ -166,6 +175,8 @@ data/
 ├── files/<sha>[:2]/…pdf    Content-addressed PDFs
 ├── thumbnails/<sha>[:2]/…  page-1 / figure-1..3 (+ cached .card.jpg)
 ├── lectures/<paper_id>.md  Study notes for one paper (docs/study-notes.md)
+│                          extra lectures: <paper_id>__<slug>.md
+├── lectures/assets/<id>/   HTML/JS components embedded by a lecture's ```widget block
 ├── notes/<slug>.md         Shared concept notes, linked via [[wikilinks]]
 ├── tmp/, cache/            Scratch space; cache/ is currently unused
 └── logs/                   telegram.log, citations.log

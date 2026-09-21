@@ -1,8 +1,16 @@
+// Side-effect only: polyfills Promise.withResolvers() on engines that
+// predate it (pdf.js 6.x calls it unconditionally, no fallback - see the
+// comment in that file, e.g. Obsidian's built-in browser as of writing).
+// Must be imported before pdf.mjs.
+import "/static/vendor/pdfjs/compat-polyfill.js";
 import * as pdfjs from "/static/vendor/pdfjs/pdf.mjs";
-import { hitTestPdfAnnotations } from "/static/annotation-interaction.mjs?v=1";
+import { hitTestPdfAnnotations } from "/static/annotation-interaction.mjs?v=2";
 import { annotationMarkColor } from "/static/annotation-colors.mjs?v=1";
 
-pdfjs.GlobalWorkerOptions.workerSrc = "/static/vendor/pdfjs/pdf.worker.mjs";
+// worker-entry.mjs re-applies the same polyfill inside the worker's own
+// global scope (a separate realm from the page) before loading the real
+// pdf.worker.mjs - see that file for why.
+pdfjs.GlobalWorkerOptions.workerSrc = "/static/vendor/pdfjs/worker-entry.mjs?v=2";
 const IGNORE_SELECTOR = ".saved-highlight, .figure-hotspot, .annotation-panel, .annotation-toggle, .annotation-inline-composer, .annotation-float";
 
 /**
@@ -152,10 +160,18 @@ export class PdfView {
       });
     }, { root: this.isWindow ? null : this.scroller, rootMargin: "120% 0px" });
 
+    // Fetching every page up front costs one pdf.js page parse per page and
+    // keeps them all alive; on a 681-page book that stalls the tab before a
+    // single canvas appears. Books are uniform, so page 1's aspect ratio sizes
+    // every placeholder, and the real page object is fetched only when the
+    // page is actually about to render (ensurePage below corrects the ratio if
+    // that page turns out to be a different size).
+    const firstPage = await this.document.getPage(1);
+    const firstUnscaled = firstPage.getViewport({ scale: 1 });
+    const defaultRatio = firstUnscaled.height / firstUnscaled.width;
     for (let pageNumber = 1; pageNumber <= this.document.numPages; pageNumber += 1) {
-      const page = await this.document.getPage(pageNumber);
-      const unscaled = page.getViewport({ scale: 1 });
-      const state = { pageNumber, page, ratio: unscaled.height / unscaled.width, shell: null, renderedZoom: null, renderedWidth: null, token: 0 };
+      const page = pageNumber === 1 ? firstPage : null;
+      const state = { pageNumber, page, ratio: defaultRatio, shell: null, renderedZoom: null, renderedWidth: null, token: 0, rendering: false };
       const shell = document.createElement("section");
       shell.className = "pdf-page";
       shell.dataset.pageNumber = String(pageNumber);
@@ -197,13 +213,59 @@ export class PdfView {
 
   async renderPage(state) {
     if (!state || (state.renderedZoom === this.zoom && state.renderedWidth === this.fitWidth)) return;
+    // Without this guard, scrolling a stuck page out of view and back in
+    // (or any other re-fire of the IntersectionObserver/queue for a page
+    // whose render is still in flight) starts ANOTHER concurrent attempt,
+    // bumping state.token and silently discarding whatever the first
+    // attempt was about to show (including its eventual "failed, retry"
+    // fallback) - the reader just sees an endless blank page that never
+    // settles, because every scroll resets the 15s clock. One render at a
+    // time per page; cleared in the finally below regardless of outcome.
+    if (state.rendering) return;
+    state.rendering = true;
+    try {
+      await this.renderPageAttempt(state);
+    } finally {
+      state.rendering = false;
+    }
+  }
+
+  /** Fetch this page's pdf.js object on first use, correcting its placeholder
+   *  height if the page is not the same shape as page 1. */
+  async ensurePage(state) {
+    if (state.page) return state.page;
+    state.page = await this.document.getPage(state.pageNumber);
+    const unscaled = state.page.getViewport({ scale: 1 });
+    const ratio = unscaled.height / unscaled.width;
+    if (Math.abs(ratio - state.ratio) > 0.01) {
+      state.ratio = ratio;
+      this.sizePage(state);
+    }
+    return state.page;
+  }
+
+  async renderPageAttempt(state) {
+    await this.ensurePage(state);
+    const renderTimedOutFlag = { value: false };
     const targetZoom = this.zoom;
     const targetWidth = this.fitWidth;
     const token = ++state.token;
     const unscaled = state.page.getViewport({ scale: 1 });
     const scale = targetWidth / unscaled.width * targetZoom;
     const viewport = state.page.getViewport({ scale });
-    const pixelRatio = window.devicePixelRatio || 1;
+    // A full-page scan on a Retina display would otherwise rasterize at
+    // devicePixelRatio² - e.g. 2800x3725 ≈ 10.4M pixels for one page, which
+    // pdf.js (pure JS, no GPU) takes tens of seconds to paint. Capping the
+    // total canvas area keeps the slowest pages readable in seconds; the
+    // cap only kicks in for pages big enough that the lost sharpness is
+    // invisible at normal reading zoom, and zooming in re-renders at the
+    // new scale anyway.
+    const MAX_CANVAS_PIXELS = 4_000_000;
+    const devicePixels = window.devicePixelRatio || 1;
+    const requestedPixels = viewport.width * viewport.height * devicePixels * devicePixels;
+    const pixelRatio = requestedPixels > MAX_CANVAS_PIXELS
+      ? Math.max(1, devicePixels * Math.sqrt(MAX_CANVAS_PIXELS / requestedPixels))
+      : devicePixels;
     const content = document.createElement("div");
     content.className = "page-content";
     content.style.width = `${viewport.width}px`;
@@ -226,11 +288,38 @@ export class PdfView {
       textLayerElement.className = "textLayer";
       content.append(textLayerElement);
 
-      await state.page.render({
+      const renderTask = state.page.render({
         canvasContext: canvas.getContext("2d"),
         viewport,
         transform: pixelRatio === 1 ? null : [pixelRatio, 0, 0, pixelRatio, 0, 0],
-      }).promise;
+      });
+      // Some pages make pdf.js's worker go silent mid-render - the promise
+      // then never resolves *or* rejects (see the compat-polyfill.js header
+      // for the sibling "goes silent" failure mode; reproduced here on both
+      // a scanned CCITT-image page and an ordinary vector-text page, so it
+      // isn't specific to one content type). Only maxConcurrentRenders
+      // slots exist, so one stuck page would otherwise permanently wedge a
+      // slot and leave every later page blank forever with no error. Racing
+      // a timeout bounds renderPage()'s own promise regardless; cancel()
+      // is still called so pdf.js can reclaim the task if the worker ever
+      // does come back.
+      // Generous on purpose: a large scanned page can legitimately take ~20s
+      // to paint here, so a tighter bound would cancel renders that were
+      // about to succeed. This is a last-resort "the worker is never coming
+      // back" guard, not a latency target.
+      const PAGE_RENDER_TIMEOUT_MS = 90000;
+      const renderTimeout = window.setTimeout(() => {
+        renderTimedOutFlag.value = true;
+        renderTask.cancel();
+      }, PAGE_RENDER_TIMEOUT_MS);
+      try {
+        await renderTask.promise;
+      } finally {
+        window.clearTimeout(renderTimeout);
+      }
+      if (renderTimedOutFlag.value) {
+        throw new Error(`Page ${state.pageNumber} render timed out after ${PAGE_RENDER_TIMEOUT_MS / 1000}s`);
+      }
       if (token !== state.token || targetZoom !== this.zoom || targetWidth !== this.fitWidth) return;
       const textLayer = new pdfjs.TextLayer({
         textContentSource: await state.page.getTextContent(),
@@ -247,7 +336,23 @@ export class PdfView {
       state.renderedWidth = targetWidth;
       this.addFigureHotspots(state);
     } catch (error) {
-      if (token === state.token) console.error(`Could not render page ${state.pageNumber}`, error);
+      if (token !== state.token) return;
+      console.error(`Could not render page ${state.pageNumber}`, error);
+      // Leaving the shell empty reads as "still loading" forever - show that
+      // this page specifically gave up, with a manual way to try again
+      // (renderedZoom/renderedWidth were never set on this path, so a fresh
+      // renderPage() call for this state will actually re-attempt, not
+      // early-return as already-rendered).
+      const fallback = document.createElement("div");
+      fallback.className = "pdf-page-render-failed";
+      const message = document.createElement("p");
+      message.textContent = `第 ${state.pageNumber} 页渲染失败`;
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.textContent = "重试";
+      retry.addEventListener("click", () => this.renderPage(state));
+      fallback.append(message, retry);
+      state.shell.replaceChildren(fallback);
     }
   }
 
@@ -313,10 +418,18 @@ export class PdfView {
     this.container.querySelectorAll(`[data-annotation-id="${annotation.id}"]`).forEach((mark) => mark.remove());
   }
 
+  /** Smooth scrolling silently gives up over very long distances (a 681-page
+   *  book is ~680k px tall, and Chrome drops the animation), so jumps that
+   *  cross more than a few screens land instantly instead of not at all. */
+  static scrollBehaviorFor(element, scroller, block) {
+    const distance = Math.abs(element.getBoundingClientRect().top - (scroller?.getBoundingClientRect().top ?? 0));
+    return { behavior: distance > (scroller?.clientHeight ?? 800) * 4 ? "auto" : "smooth", block };
+  }
+
   navigateTo(annotation) {
     const state = this.pageStates.get(annotation.page_number);
     if (!state) return;
-    state.shell.scrollIntoView({ behavior: "smooth", block: "center" });
+    state.shell.scrollIntoView(PdfView.scrollBehaviorFor(state.shell, this.container?.parentElement, "center"));
     this.renderPage(state).then(() => {
       state.shell.querySelectorAll(`[data-annotation-id="${annotation.id}"]`).forEach((mark) => {
         mark.classList.remove("annotation-flash");
@@ -329,8 +442,12 @@ export class PdfView {
   scrollToPage(pageNumber) {
     const state = this.pageStates.get(pageNumber);
     if (!state) return;
-    state.shell.scrollIntoView({ behavior: "smooth", block: "start" });
-    this.renderPage(state);
+    const settle = () => state.shell.scrollIntoView(PdfView.scrollBehaviorFor(state.shell, this.container?.parentElement, "start"));
+    settle();
+    // Rendering replaces a placeholder with the real canvas, and the small
+    // height difference accumulated over hundreds of pages can leave the jump
+    // a page short. Re-align once the target page is actually rendered.
+    Promise.resolve(this.renderPage(state)).then(() => window.requestAnimationFrame(settle));
   }
 
   // --- outline / table of contents (pdf.js' own getOutline(), not custom parsing) ---

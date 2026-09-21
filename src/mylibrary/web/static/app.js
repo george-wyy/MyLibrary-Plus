@@ -1,3 +1,7 @@
+import { initThemeToggle } from "/static/theme.mjs?v=2";
+
+initThemeToggle(document.querySelector("#theme-toggle"));
+
 document.addEventListener("submit", async (event) => {
   const form = event.target.closest(".done-toggle-form");
   if (!form) return;

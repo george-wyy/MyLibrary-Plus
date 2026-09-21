@@ -171,6 +171,8 @@ class Annotation(Base):
     anchor_json: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
     color: Mapped[str] = mapped_column(String(20), default="yellow")
     note: Mapped[str | None] = mapped_column(Text)
+    is_favorite: Mapped[bool] = mapped_column(default=False, server_default="0")
+    last_viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     paper: Mapped[Paper] = relationship(back_populates="annotations")

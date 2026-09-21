@@ -1,19 +1,95 @@
 /* Page chrome for the full-page reader. The viewer itself is styled by
    pdfview.css, which the study split view loads as well. */
-:root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #273036; background: #dfe2e3; }
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Shared token names/values match style.css and pdfview.css/annotations.css
+     so the same dark palette applies everywhere (夜览模式). */
+  --page-bg: #dfe2e3;
+  --text: #273036;
+  --pill-bg: #f7f7f4e8;
+  --pill-border: #ccd1d2;
+  --pill-text: #566268;
+  --toolbar-bg: #f7f7f4ed;
+  --toolbar-border: #c5cbcd;
+  --toolbar-divider: #d5d9da;
+  --toolbar-icon: #47565d;
+  --toolbar-hover: #e9eceb;
+  --menu-bg: #f8f8f5f5;
+  --menu-border: #bbc2c5;
+  --menu-text: #5d666b;
+  --menu-item-bg: #eef0ef;
+  --menu-item-border: #d2d6d6;
+  --menu-item-hover: #e4e7e6;
+  --menu-item-text: #344047;
+  --danger: #98483f;
+
+  color: var(--text);
+  background: var(--page-bg);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page-bg: #1a1d1f;
+    --text: #e6e6e6;
+    --pill-bg: #232729ee;
+    --pill-border: #40474c;
+    --pill-text: #b9c0c4;
+    --toolbar-bg: #232729ee;
+    --toolbar-border: #40474c;
+    --toolbar-divider: #383e42;
+    --toolbar-icon: #d8dde0;
+    --toolbar-hover: #2f3538;
+    --menu-bg: #232729f5;
+    --menu-border: #40474c;
+    --menu-text: #b9c0c4;
+    --menu-item-bg: #2b3033;
+    --menu-item-border: #383e42;
+    --menu-item-hover: #333a3d;
+    --menu-item-text: #d8dde0;
+  }
+}
+:root[data-theme="dark"] {
+  --page-bg: #1a1d1f;
+  --text: #e6e6e6;
+  --pill-bg: #232729ee;
+  --pill-border: #40474c;
+  --pill-text: #b9c0c4;
+  --toolbar-bg: #232729ee;
+  --toolbar-border: #40474c;
+  --toolbar-divider: #383e42;
+  --toolbar-icon: #d8dde0;
+  --toolbar-hover: #2f3538;
+  --menu-bg: #232729f5;
+  --menu-border: #40474c;
+  --menu-text: #b9c0c4;
+  --menu-item-bg: #2b3033;
+  --menu-item-border: #383e42;
+  --menu-item-hover: #333a3d;
+  --menu-item-text: #d8dde0;
+}
 * { box-sizing: border-box; }
 body { margin: 0; }
-.reader-status { position: fixed; top: .65rem; left: 50%; z-index: 20; max-width: calc(100vw - 2rem); padding: .35rem .7rem; transform: translateX(-50%); overflow: hidden; color: #566268; background: #f7f7f4e8; border: 1px solid #ccd1d2; border-radius: 999px; box-shadow: 0 2px 8px #0002; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; opacity: .88; }
+.reader-status { position: fixed; top: .65rem; left: 50%; z-index: 20; max-width: calc(100vw - 2rem); padding: .35rem .7rem; transform: translateX(-50%); overflow: hidden; color: var(--pill-text); background: var(--pill-bg); border: 1px solid var(--pill-border); border-radius: 999px; box-shadow: 0 2px 8px #0002; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; opacity: .88; }
 .reader-status[hidden] { display: none; }
-.reader-actions { position: fixed; top: .75rem; right: .75rem; z-index: 30; display: flex; overflow: hidden; background: #f7f7f4ed; border: 1px solid #c5cbcd; border-radius: 8px; box-shadow: 0 2px 10px #0003; }
-.reader-actions :is(a, button) { display: grid; place-items: center; width: 2.55rem; height: 2.55rem; padding: 0; color: #47565d; background: transparent; border: 0; border-right: 1px solid #d5d9da; cursor: pointer; }
+/* Shown instead of (or in addition to) reader-status when rendering the
+   PDF actually fails or times out - unlike reader-status this is meant to
+   be read (wraps, no ellipsis) and clicked (pointer-events left at the
+   default, since reader-status above sets pointer-events:none on itself). */
+.pdf-fallback { position: fixed; top: 3.1rem; left: 50%; z-index: 25; max-width: min(90vw, 24rem); transform: translateX(-50%); padding: .7rem .9rem; color: var(--pill-text); background: var(--pill-bg); border: 1px solid var(--pill-border); border-radius: 10px; box-shadow: 0 2px 10px #0003; font-size: .8rem; line-height: 1.45; text-align: center; }
+.pdf-fallback[hidden] { display: none; }
+.pdf-fallback p { margin: 0 0 .5rem; word-break: break-word; }
+.pdf-fallback a { display: inline-flex; align-items: center; gap: .3rem; padding: .35rem .75rem; border-radius: 6px; background: var(--toolbar-bg); border: 1px solid var(--toolbar-border); color: inherit; text-decoration: none; font-weight: 600; }
+.pdf-fallback a:hover { background: var(--toolbar-hover); }
+.reader-actions { position: fixed; top: .75rem; right: .75rem; z-index: 30; display: flex; overflow: hidden; background: var(--toolbar-bg); border: 1px solid var(--toolbar-border); border-radius: 8px; box-shadow: 0 2px 10px #0003; }
+.reader-actions :is(a, button) { display: grid; place-items: center; width: 2.55rem; height: 2.55rem; padding: 0; color: var(--toolbar-icon); background: transparent; border: 0; border-right: 1px solid var(--toolbar-divider); cursor: pointer; }
 .reader-actions :is(a, button):last-child { border-right: 0; }
-.reader-actions :is(a, button):hover { background: #e9eceb; }
+.reader-actions :is(a, button):hover { background: var(--toolbar-hover); }
 .reader-actions svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .reader-actions img { width: 1.35rem; height: 1.35rem; }
-.annotation-menu { position: fixed; z-index: 50; display: grid; gap: .35rem; width: min(18rem, calc(100vw - 1.5rem)); padding: .55rem; background: #f8f8f5f5; border: 1px solid #bbc2c5; border-radius: 8px; box-shadow: 0 5px 20px #0004; }
+.annotation-menu { position: fixed; z-index: 50; display: grid; gap: .35rem; width: min(18rem, calc(100vw - 1.5rem)); padding: .55rem; background: var(--menu-bg); border: 1px solid var(--menu-border); border-radius: 8px; box-shadow: 0 5px 20px #0004; }
 .annotation-menu[hidden] { display: none; }
-.annotation-menu span { display: block; max-height: 3.5rem; overflow: hidden; padding: .25rem .35rem .45rem; color: #5d666b; font-size: .78rem; line-height: 1.35; }
-.annotation-menu button { padding: .48rem .65rem; color: #344047; background: #eef0ef; border: 1px solid #d2d6d6; border-radius: 5px; text-align: left; cursor: pointer; }
-.annotation-menu button:hover { background: #e4e7e6; }
-.annotation-menu button.remove { color: #98483f; }
+.annotation-menu span { display: block; max-height: 3.5rem; overflow: hidden; padding: .25rem .35rem .45rem; color: var(--menu-text); font-size: .78rem; line-height: 1.35; }
+.annotation-menu button { padding: .48rem .65rem; color: var(--menu-item-text); background: var(--menu-item-bg); border: 1px solid var(--menu-item-border); border-radius: 5px; text-align: left; cursor: pointer; }
+.annotation-menu button:hover { background: var(--menu-item-hover); }
+.annotation-menu button.remove { color: var(--danger); }

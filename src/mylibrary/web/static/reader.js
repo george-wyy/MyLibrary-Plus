@@ -1,10 +1,15 @@
-import { AnnotationPanel } from "/static/annotations.js?v=28";
-import { PdfView, renderOutline } from "/static/pdfview.js?v=12";
+import { AnnotationPanel } from "/static/annotations.js?v=33";
+import { PdfView, renderOutline } from "/static/pdfview.js?v=28";
+import { initThemeToggle } from "/static/theme.mjs?v=2";
+
+initThemeToggle(document.querySelector("#theme-toggle"));
 
 const body = document.body;
 const paperId = body.dataset.paperId;
 const pages = document.querySelector("#pdf-pages");
 const status = document.querySelector("#reader-status");
+const pdfFallback = document.querySelector("#pdf-fallback");
+const pdfFallbackMessage = document.querySelector("#pdf-fallback-message");
 const zoomControls = document.querySelector("#zoom-controls");
 const zoomDisplay = document.querySelector("#zoom-display");
 const chatGptButton = document.querySelector("#open-chatgpt");
@@ -43,7 +48,7 @@ const pdfView = new PdfView({
   onZoomChange: (zoom) => { zoomDisplay.textContent = `${Math.round(zoom * 100)}%`; },
   onOutlineReady: (outline) => {
     tocToggle.hidden = !outline.length;
-    if (outline.length) renderOutline(tocBody, outline, (pageNumber) => { pdfView.scrollToPage(pageNumber); closeToc(); });
+    if (outline.length) renderOutline(tocBody, outline, (pageNumber) => { pdfView.scrollToPage(pageNumber); });
   },
 });
 
@@ -86,6 +91,28 @@ function showStatus(message) {
   status.hidden = false;
   status.textContent = message;
 }
+
+// Shown when pdf.js throws (e.g. it calls a JS API the current browser
+// engine doesn't have - see compat-polyfill.js) or when render() never
+// settles at all within RENDER_TIMEOUT_MS (observed in Obsidian's built-in
+// browser: the worker handshake can succeed and then go silent partway
+// through rendering a page, so nothing ever rejects the promise either).
+// Either way `status` (a single-line ellipsized pill) isn't built to show
+// a real error or a clickable escape hatch, so this is a separate element.
+function showPdfFallback(error) {
+  showStatus(null);
+  const name = error?.name || "Error";
+  const message = error?.message || String(error ?? "unknown error");
+  pdfFallbackMessage.textContent = `PDF 渲染失败（${name}）：${message}`;
+  pdfFallback.hidden = false;
+}
+
+const RENDER_TIMEOUT_MS = 60000;
+const renderTimeout = window.setTimeout(() => {
+  if (pdfFallback.hidden) {
+    showPdfFallback({ name: "Timeout", message: `超过 ${RENDER_TIMEOUT_MS / 1000} 秒仍未显示，当前浏览器环境可能不兼容内置的 PDF 渲染` });
+  }
+}, RENDER_TIMEOUT_MS);
 
 zoomControls.addEventListener("click", (event) => {
   const button = event.target.closest("[data-zoom]");
@@ -158,12 +185,14 @@ chatGptButton.addEventListener("click", () => {
 });
 
 pdfView.render().then(() => {
+  window.clearTimeout(renderTimeout);
   const requested = new URLSearchParams(window.location.hash.slice(1)).get("annotation");
   const restored = requested || savedSession?.annotationId;
   if (restored) annotationPanel.select(restored, true);
   if (savedSession) window.requestAnimationFrame(() => window.scrollTo({ top: savedSession.scrollY, behavior: "auto" }));
   savedSession = null;
 }).catch((error) => {
+  window.clearTimeout(renderTimeout);
   console.error(error);
-  showStatus(`Could not display this PDF: ${error?.message || error}`);
+  showPdfFallback(error);
 });

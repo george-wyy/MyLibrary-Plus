@@ -4,6 +4,7 @@ import json
 
 import httpx
 from sqlalchemy import func, or_, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from ..config import Settings
@@ -358,6 +359,14 @@ class LibraryService:
                 if not note_slug:
                     raise ValueError("Note annotations require a note_slug")
                 normalized_anchor["note_slug"] = note_slug
+            if target_type == "lecture":
+                # A paper can carry several lectures; the slug says which one this
+                # highlight belongs to. Absent/"" means the paper's main lecture,
+                # which is what every annotation made before multi-lecture support
+                # already is, so old records need no migration.
+                lecture_slug = "".join(ch for ch in str(anchor.get("lecture_slug", "")).strip() if ch.isalnum() or ch in "-_")
+                if lecture_slug:
+                    normalized_anchor["lecture_slug"] = lecture_slug
         with self.sessions.begin() as session:
             if session.get(Paper, paper_id) is None:
                 raise LookupError("Paper not found")
@@ -388,6 +397,7 @@ class LibraryService:
         note: str | None | _OmittedField = _OMITTED,
         color: str | _OmittedField = _OMITTED,
         tags: list[str] | _OmittedField = _OMITTED,
+        is_favorite: bool | _OmittedField = _OMITTED,
     ) -> Annotation:
         with self.sessions.begin() as session:
             annotation = session.get(
@@ -408,7 +418,36 @@ class LibraryService:
             if tags is not _OMITTED:
                 clean_tags = self._normalize_annotation_tags(tags)
                 self._replace_annotation_tags(session, annotation, clean_tags)
+            if is_favorite is not _OMITTED:
+                if not isinstance(is_favorite, bool):
+                    raise ValueError("is_favorite must be a boolean")
+                annotation.is_favorite = is_favorite
             session.flush()
+            session.expunge(annotation)
+            return annotation
+
+    def mark_annotation_viewed(self, paper_id: str, annotation_id: str) -> Annotation:
+        """Record that the reader opened this annotation's thread (a WeChat-style
+        read receipt for AI replies). Uses a targeted UPDATE rather than the usual
+        load-mutate-flush pattern, and re-asserts updated_at's own current value to
+        override its onupdate=utcnow default - otherwise merely viewing a thread
+        would bump "updated" and make an untouched annotation look freshly edited.
+        """
+        with self.sessions.begin() as session:
+            annotation = session.get(
+                Annotation,
+                annotation_id,
+                options=[selectinload(Annotation.replies), selectinload(Annotation.tags)],
+            )
+            if annotation is None or annotation.paper_id != paper_id:
+                raise LookupError("Annotation not found")
+            session.execute(
+                sa_update(Annotation)
+                .where(Annotation.id == annotation_id)
+                .values(last_viewed_at=utcnow(), updated_at=Annotation.updated_at)
+            )
+            session.flush()
+            session.refresh(annotation)
             session.expunge(annotation)
             return annotation
 

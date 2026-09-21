@@ -113,15 +113,40 @@ export function formatAnnotationDateTime(value) {
   return `${parts.year}/${parts.month}/${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
-export function matchesAnnotation(annotation, query = "", selectedTag = "") {
+// A WeChat-style read/pending status, derived entirely from data the server
+// already sends (replies + last_viewed_at) - no separate "unread" flag to
+// keep in sync. The thread's own note counts as the opening "user message",
+// so a bare highlight with no note and no user reply never shows a pending
+// badge - there's nothing there for the AI to respond to.
+export function computeAnnotationStatus(annotation) {
+  const replies = Array.isArray(annotation?.replies) ? annotation.replies : [];
+  const lastReply = replies.length ? replies[replies.length - 1] : null;
+  const hasUserContent = Boolean(annotation?.note) || replies.some((reply) => reply?.role === "user");
+  const pendingAi = hasUserContent && (lastReply ? lastReply.role !== "assistant" : true);
+  const lastViewedAt = annotation?.last_viewed_at ? new Date(annotation.last_viewed_at).getTime() : 0;
+  const unreadReply = replies.some((reply) => {
+    if (reply?.role !== "assistant" || !reply?.created_at) return false;
+    return new Date(reply.created_at).getTime() > lastViewedAt;
+  });
+  return { pendingAi, unreadReply, isFavorite: Boolean(annotation?.is_favorite) };
+}
+
+export function matchesAnnotation(annotation, query = "", selectedTag = "", selectedStatus = "") {
   const normalizedQuery = normalizeText(query);
   const normalizedTag = normalizeText(selectedTag);
-  if (!normalizedQuery && !normalizedTag) return true;
+  if (!normalizedQuery && !normalizedTag && !selectedStatus) return true;
   if (!annotation || typeof annotation !== "object") return false;
 
   const tags = annotationTagNames(annotation).map(normalizeText);
   const tagMatches = !normalizedTag || tags.includes(normalizedTag);
   if (!tagMatches) return false;
+
+  if (selectedStatus) {
+    const status = computeAnnotationStatus(annotation);
+    if (selectedStatus === "unread" && !status.unreadReply) return false;
+    if (selectedStatus === "pending" && !status.pendingAi) return false;
+    if (selectedStatus === "favorite" && !status.isFavorite) return false;
+  }
 
   return !normalizedQuery || searchableAnnotationValues(annotation)
     .some((value) => normalizeText(value).includes(normalizedQuery));

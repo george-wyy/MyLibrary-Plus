@@ -14,9 +14,10 @@
       <li><span class="badge ok">ready</span> Add by title / URL / DOI / arXiv ID, or bulk-import a Zotero collection offline</li>
       <li><span class="badge ok">ready</span> Timeline cards with a figure carousel (swipe / arrows / dots / click for lightbox)</li>
       <li><span class="badge ok">ready</span> PDF reader and study view with shared text annotations, tags, and a floating reading window</li>
+      <li><span class="badge ok">ready</span> Region annotations on figures inside the PDF reader (drag a box), favorites, unread tracking</li>
+      <li><span class="badge ok">ready</span> Several study notes per paper, embedded interactive components, and a system / light / dark reading mode</li>
       <li><span class="badge ok">ready</span> Annotation context API for external AI agents (<code>/api/papers/{id}/annotations/context</code>)</li>
       <li><span class="badge todo">optional</span> Telegram bot for adding papers from a phone (needs a BotFather token)</li>
-      <li><span class="badge todo">planned</span> Region-selection annotations on figures inside the PDF reader</li>
     </ul>
   </section>
 
@@ -88,15 +89,13 @@ flowchart TD
   LO["Native reader<br/>./mylibrary open"]
   H1["Text annotations ✓ stored in the library"]
   H2["Study view: PDF + notes side by side<br/>annotations shared across both"]
-  H3["Region selection on figures (planned)"]
+  H3["Region annotation: drag a box over a figure ✓"]
   P --> R
   R -->|"keep the annotations"| WR
   R -->|"just read"| LO
   WR --> H1
   WR --> H2
   WR --> H3
-  class H3 todo
-  classDef todo stroke-dasharray:5 5,fill:#fff7e6,stroke:#c98a00,color:#7a5200;
     </pre>
   </section>
 
