@@ -48,6 +48,7 @@ flowchart LR
 | **批注只有一个地方** | 在 PDF 里或在 Markdown 讲义里选中文字就能批注，两者共用同一个侧栏；还有可拖动缩放的浮窗单独读一条线程，支持每条批注打标签、时间戳、编辑、回复。 |
 | **讲义模式** | 左边 PDF，右边你的 Markdown 讲义——支持 KaTeX 公式、嵌图、背景知识框、`[[双链]]` 到共享概念笔记以及反向链接。一篇论文可以挂多份讲义（一份入门、一份逐章精读），在标题旁的下拉里切换；讲义里还能用 ` ```widget ` 围栏块嵌入自己的交互组件。 |
 | **夜览模式** | 全站 系统 / 浅色 / 深色 三态切换，首帧之前就应用，不会闪白；时间线、阅读器、讲义模式和批注面板都有配套的深色配色。 |
+| **自带示例库** | `examples/data/` 里有一套公共论文组成的小库，配 `examples/verify.py`。刚 clone 下来（或让 agent 配置）就能先把每个界面、每条路由跑通，再放自己的论文。 |
 | **Zotero 离线导入** | `zotero_import.py -c "分组名"` 直接读 Zotero 的 SQLite，复用本地已有的 PDF，所以付费墙论文也能抽出图。全程不联网。 |
 | **给 AI 用的批注接口** | `GET /api/papers/{id}/annotations/context` 返回论文 + 批注 + 使用说明的 JSON；agent 可以用 `role: "assistant"` 把回复写回线程。 |
 | **哪都能加论文** | CLI 支持标题 / URL / DOI / arXiv ID / PMID；也可以配一个私有 Telegram bot，在手机上丢链接进来。 |
@@ -60,6 +61,10 @@ flowchart LR
 等 AI 回复」筛选。`复制给 AI` 把整条线程作为结构化上下文拷走。
 
 ![PDF 阅读器与批注侧栏](docs/images/reader.png)
+
+同一个侧栏也收图区批注：在 PDF 里框选一张图，它就成了一条带笔记、标签和颜色的批注。
+
+![框选图作为一条区域批注，侧栏里显示](docs/images/reader-region.png)
 
 ### 讲义模式
 
@@ -81,6 +86,21 @@ title: 交互：四道门控
 （html/js/css/json/csv/图片），`..` 和绝对路径都出不去。
 
 ![讲义模式：左 PDF，右渲染后的讲义](docs/images/study.png)
+
+分屏也可以切成上下——想看宽一点的 PDF 时用；` ```widget ` 块嵌进来的组件会跟随全站主题：
+
+![讲义模式上下分屏，讲义在 PDF 下方](docs/images/study-stacked.png)
+
+![讲义里嵌入的交互组件](docs/images/widget.png)
+
+### 夜览模式
+
+一个按钮在 系统 → 浅色 → 深色 之间循环。选择在首帧之前就应用，时间线、阅读器、
+讲义模式、批注面板和交互组件都有深色配色：
+
+![深色模式下的时间线](docs/images/timeline-night.png)
+
+![深色模式下的讲义模式，右侧批注面板打开](docs/images/study-night.png)
 
 ### 看图
 
@@ -109,6 +129,20 @@ python3 -m venv .venv
 
 打开 <http://127.0.0.1:8765>。`run` 会同时启动 Web 界面和每日引用数更新（配了 Telegram 就
 一起起 bot）；只要 Web 界面的话用 `serve`。
+
+### 先不导自己的论文，直接试
+
+`examples/data/` 是一个现成的小库（都是著名 arXiv 论文，带标签、讲义、概念笔记和批注），
+不用导入任何东西就能看到每个界面，也方便 agent 端到端验证安装：
+
+```bash
+cp -R examples/data ./data            # 或 cp -R examples/data ~/.local/share/mylibrary
+./mylibrary serve                     # http://127.0.0.1:8765
+python3 examples/verify.py --serve    # 或者只检查文件 / 数据库 / 全部路由
+```
+
+想从零开始时删掉 `data/` 即可。每个示例文件演示了什么、怎么写自己的，见
+[examples/](examples/)。
 
 ## 命令行
 

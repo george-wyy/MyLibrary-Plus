@@ -50,6 +50,7 @@ flowchart LR
 | **Annotations in one place** | Select text in the PDF *or* in your Markdown study notes and annotate it. One sidebar holds both, plus a draggable floating window for reading a single thread, per-annotation tags, timestamps, edits, and replies. |
 | **Study view (讲义)** | PDF on the left, your Markdown notes on the right — with KaTeX math, embedded figures, callout boxes, `[[wikilinks]]` to shared concept notes, and backlinks. A paper can carry several study notes (a primer and a chapter-by-chapter deep dive, say) behind a picker, and a note can embed its own interactive HTML/JS components in a ` ```widget ` fence. |
 | **Night reading** | 夜览模式 — a system / light / dark toggle on every page, applied before first paint so there is no flash, with dark palettes across the timeline, reader, study view and annotation panels. |
+| **Ready-made example library** | `examples/data/` ships a small public-paper library plus `examples/verify.py`, so a fresh clone (or an agent configuring it) can see every screen and check every route before touching real papers. |
 | **Offline Zotero import** | `zotero_import.py -c "Collection"` reads Zotero's SQLite directly and reuses the PDFs already on disk, so paywalled papers keep their figures. Nothing is downloaded. |
 | **Agent-ready annotations** | `GET /api/papers/{id}/annotations/context` returns the paper, its annotations and instructions as JSON; an agent replies into the thread as `role: "assistant"`. |
 | **Add from anywhere** | CLI by title / URL / DOI / arXiv ID / PMID, or a private Telegram bot for adding papers from your phone. |
@@ -63,6 +64,11 @@ study notes — with tags, timestamps, edits and replies, plus favorite / unread
 for the AI filters. `复制给 AI` copies the whole thread as structured context.
 
 ![The PDF reader with the annotation sidebar open](docs/images/reader.png)
+
+The same panel takes figure regions: drag a box over a figure in the PDF and it is
+stored as one annotation with its own note, tags and color.
+
+![A figure selected as a region annotation, listed in the sidebar](docs/images/reader-region.png)
 
 ### Study view
 
@@ -87,6 +93,23 @@ asset types on its allow-list (html/js/css/json/csv/images) from inside that pap
 asset folder, so `..` and absolute paths cannot escape it.
 
 ![The study view: PDF on the left, rendered study notes on the right](docs/images/study.png)
+
+The split can also be stacked top/bottom when you prefer a wide PDF, and a
+` ```widget ` block embeds a live component that follows the app's theme:
+
+![The study view stacked, notes below the PDF](docs/images/study-stacked.png)
+
+![An interactive widget embedded in a lecture](docs/images/widget.png)
+
+### Night reading (夜览模式)
+
+One toggle cycles system → light → dark. The choice is applied before first paint, and
+every surface — timeline, reader, study view, annotation panel and widgets — has a dark
+palette:
+
+![The timeline in dark mode](docs/images/timeline-night.png)
+
+![The study view in dark mode, with the annotation panel open](docs/images/study-night.png)
 
 ### Figures, up close
 
@@ -116,6 +139,21 @@ python3 -m venv .venv
 
 Open <http://127.0.0.1:8765>. `run` serves the web UI and the daily citation updater;
 `serve` runs the web UI alone.
+
+### Try it before adding your own papers
+
+`examples/data/` is a small ready-made library (well-known arXiv papers, tags, study
+notes, concept notes and annotations) so you can see every screen without importing
+anything, and so an agent can verify the install end to end:
+
+```bash
+cp -R examples/data ./data            # or: cp -R examples/data ~/.local/share/mylibrary
+./mylibrary serve                     # http://127.0.0.1:8765
+python3 examples/verify.py --serve    # or let it check files, db and every route
+```
+
+Delete `data/` when you want to start clean. See [examples/](examples/) for what each
+sample file demonstrates and how to author your own.
 
 ## CLI
 

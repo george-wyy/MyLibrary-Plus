@@ -1,4 +1,6 @@
-data/
+# Your own library data. The root pattern only: `data/` would also match
+# examples/data/, which IS tracked (the bundled example library ships with the repo).
+/data/
 .venv/
 __pycache__/
 *.py[cod]
@@ -8,8 +10,16 @@ __pycache__/
 .DS_Store
 
 api_keys/
-tmp/
+/tmp/
 .worktrees/
+
+# The example library's SQLite database is regenerated and published by the
+# maintainer's publish pipeline; a clone does not need to track WAL sidecars.
+examples/data/library.sqlite3-wal
+examples/data/library.sqlite3-shm
+examples/data/cache/
+examples/data/logs/
+examples/data/tmp/
 
 # Local launchd job and one-off import scripts stay out of git.
 # See com.mylibrary.local.plist.example and zotero_import.py for the

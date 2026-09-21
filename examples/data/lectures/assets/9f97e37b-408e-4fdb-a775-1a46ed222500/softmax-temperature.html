@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Softmax temperature explorer</title>
+<style>
+  /* The host posts {type:"mylibrary-theme"} and the widget mirrors the app's
+     夜览模式. It also reads the stored key directly on first paint. */
+  :root { color-scheme: light dark; --ink:#24292f; --muted:#5d666d; --line:#d8dcdd; --bg:#fff; --accent:#2f5b8a; --soft:#f4f6f7; }
+  html[data-theme="dark"] { --ink:#e6e6e6; --muted:#a8afb5; --line:#40474c; --bg:#232729; --accent:#8fb3c7; --soft:#2b3033; }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) { --ink:#e6e6e6; --muted:#a8afb5; --line:#40474c; --bg:#232729; --accent:#8fb3c7; --soft:#2b3033; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:14px 16px 18px; background:var(--bg); color:var(--ink);
+         font:14px/1.55 -apple-system,"Segoe UI",system-ui,sans-serif; }
+  h3 { margin:0 0 2px; font-size:.95rem; }
+  p.hint { margin:0 0 12px; color:var(--muted); font-size:.85rem; }
+  .control { display:flex; align-items:center; gap:10px; margin:0 0 14px; }
+  .control label { flex:0 0 auto; color:var(--muted); font-size:.85rem; }
+  input[type=range] { flex:1 1 auto; accent-color:var(--accent); }
+  output { flex:0 0 3.2rem; font-variant-numeric:tabular-nums; font-weight:600; text-align:right; }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:4px 6px; border-bottom:1px solid var(--line); }
+  td.logit { width:7rem; }
+  td.num { width:5rem; text-align:right; font-variant-numeric:tabular-nums; }
+  .bar { height:12px; background:var(--soft); border-radius:6px; overflow:hidden; }
+  .bar > i { display:block; height:100%; background:var(--accent); border-radius:6px; transition:width .12s ease; }
+  footer { margin-top:10px; color:var(--muted); font-size:.8rem; }
+</style>
+</head>
+<body>
+  <h3>Softmax temperature</h3>
+  <p class="hint">The same four scores scaled by 1/√d, then softmaxed. One big logit can dominate the
+    distribution — that is why the paper divides by √d<sub>k</sub>.</p>
+
+  <div class="control">
+    <label for="t">temperature</label>
+    <input id="t" type="range" min="0.2" max="4" step="0.1" value="1.8">
+    <output id="t-out">1.8</output>
+  </div>
+
+  <table id="rows"><tbody></tbody></table>
+  <footer>Solid arrow: the token with the largest share. Move the slider to flatten or sharpen it.</footer>
+
+<script>
+  var LOGITS = [
+    { label: "query · key A", value: 3.4 },
+    { label: "query · key B", value: 1.1 },
+    { label: "query · key C", value: 0.2 },
+    { label: "query · key D", value: -1.7 }
+  ];
+  var slider = document.getElementById("t");
+  var out = document.getElementById("t-out");
+  var tbody = document.querySelector("#rows tbody");
+
+  function softmax(values, temperature) {
+    var scaled = values.map(function (v) { return v / temperature; });
+    var max = Math.max.apply(null, scaled);
+    var exps = scaled.map(function (v) { return Math.exp(v - max); });
+    var total = exps.reduce(function (a, b) { return a + b; }, 0);
+    return exps.map(function (e) { return e / total; });
+  }
+
+  function render() {
+    var temperature = Number(slider.value);
+    out.textContent = temperature.toFixed(1);
+    var weights = softmax(LOGITS.map(function (row) { return row.value; }), temperature);
+    tbody.innerHTML = LOGITS.map(function (row, index) {
+      var pct = (weights[index] * 100);
+      return "<tr><td>" + row.label + "</td>" +
+             "<td class='logit'>" + row.value.toFixed(1) + "</td>" +
+             "<td><span class='bar'><i style='width:" + pct.toFixed(1) + "%'></i></span></td>" +
+             "<td class='num'>" + pct.toFixed(1) + "%</td></tr>";
+    }).join("");
+    report();
+  }
+
+  // Tell the parent how tall this document is, so the lecture pane sizes the
+  // iframe instead of leaving it at the height written in the ```widget block.
+  function report() {
+    parent.postMessage({ type: "mylibrary-widget-height", height: document.documentElement.scrollHeight }, "*");
+  }
+
+  function applyTheme(mode) {
+    if (mode === "dark" || mode === "light") document.documentElement.dataset.theme = mode;
+    else delete document.documentElement.dataset.theme;
+  }
+
+  addEventListener("message", function (event) {
+    var data = event.data || {};
+    if (data.type === "mylibrary-theme") { applyTheme(data.theme); report(); }
+  });
+
+  try { applyTheme(localStorage.getItem("mylibrary-theme") || "system"); } catch (error) {}
+  slider.addEventListener("input", render);
+  addEventListener("load", render);
+  if (window.ResizeObserver) new ResizeObserver(report).observe(document.body);
+</script>
+</body>
+</html>
