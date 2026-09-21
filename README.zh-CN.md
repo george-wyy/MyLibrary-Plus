@@ -13,6 +13,8 @@
 > 本仓库 fork 自 [liusida/MyLibrary](https://github.com/liusida/MyLibrary)，在其之上加了一整层
 > 阅读与批注功能，见[这个 fork 加了什么](#这个-fork-加了什么)。
 
+**项目主页（网页版介绍）：** <https://george-wyy.github.io/MyLibrary-Plus/zh/>
+
 ![时间线：卡片正面就是论文的图，带标签、短评和阅读标记](docs/images/timeline.png)
 
 ---

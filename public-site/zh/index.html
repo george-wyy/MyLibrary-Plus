@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyLibrary-Plus — 一个你真的会回来翻的论文库</title>
+<meta name="description" content="图优先的时间线、PDF 与讲义共用的批注系统、给 AI agent 用的 JSON 接口。自托管、本地优先、不联网。">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="icon" href="../assets/favicon.ico" sizes="any">
+<link rel="stylesheet" href="../assets/style.css">
+<script>try { const t = localStorage.getItem('mylibrary-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<meta property="og:type" content="website">
+<meta property="og:title" content="MyLibrary-Plus — 本地优先的论文库">
+<meta property="og:description" content="图优先的时间线、PDF 与讲义共用的批注系统、给 AI agent 用的 JSON 接口。">
+<meta property="og:image" content="../assets/shots/timeline.png">
+</head>
+<body data-base="..">
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../index.html">MyLibrary<span>-Plus</span></a>
+    <nav class="site-nav">
+      <a href="#features">功能</a>
+      <a href="#screens">界面</a>
+      <a class="optional" href="#agents">给 agent 用</a>
+      <a href="../index.html" lang="en">English</a>
+      <a class="icon-button" href="https://github.com/george-wyy/MyLibrary-Plus">GitHub ↗</a>
+      <button class="icon-button" type="button" data-theme-toggle aria-label="外观">🌙</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero wrap">
+    <h1>一个你真的会<br>回来翻的论文库。</h1>
+    <p class="lede">
+      文献管理器很擅长<em>归档</em>论文，极不擅长让你<strong>回来再读</strong>。
+      MyLibrary-Plus 是架在 Zotero 之上、自己托管的一层：图优先的时间线，
+      PDF 与自己的笔记共用一套批注，外加一个把整条批注线程交给 AI agent 的 JSON 接口。
+    </p>
+    <div class="cta-row">
+      <a class="button primary" href="https://github.com/george-wyy/MyLibrary-Plus">去 GitHub 克隆 / Star</a>
+      <a class="button" href="#start">2 分钟跑起来</a>
+      <a class="button" href="#agents">Agent 接口</a>
+    </div>
+    <div class="badges">
+      <span class="badge">本地优先 · 不联网</span>
+      <span class="badge">SQLite + 一个 <code>data/</code> 目录</span>
+      <span class="badge">MIT</span>
+      <span class="badge">Python 3.10+</span>
+      <span class="badge">自带示例库</span>
+    </div>
+    <figure>
+      <img class="shot" src="../assets/shots/timeline.png" alt="时间线：论文卡片显示图、标签、短评和阅读标记">
+      <figcaption class="shot-caption">时间线——每张卡片带首页和图 1–3，可滑动切换。</figcaption>
+    </figure>
+  </section>
+
+  <section id="features" class="wrap">
+    <h2>它能做什么</h2>
+    <p class="section-lede">
+      下面这些全部跑在你自己机器上：一个 SQLite 文件、内容寻址的 PDF，Web 界面只绑
+      <code>127.0.0.1</code>。
+    </p>
+    <div class="grid">
+      <div class="card">
+        <h3>图优先的时间线</h3>
+        <p>论文按时间倒序排成一片带图的卡片流，点开是全屏灯箱；可打标签、写一句话短评、标记阅读状态，也能按标签或「有讲义」筛选、搜索。</p>
+      </div>
+      <div class="card">
+        <h3>批注只有一个地方</h3>
+        <p>在 PDF 里选文字、在讲义里选文字，或者框选一整张图，都进同一个侧栏：标签、时间戳、回复、收藏、未读状态。</p>
+      </div>
+      <div class="card">
+        <h3>讲义模式</h3>
+        <p>左边 PDF、右边你的 Markdown 笔记：KaTeX 公式、嵌图、背景知识框、<code>[[双链]]</code> 到共享概念笔记并带反向链接。一篇论文可以挂多份讲义。</p>
+      </div>
+      <div class="card">
+        <h3>讲义里的活组件</h3>
+        <p><code>```widget</code> 围栏块可以嵌你自己写的 HTML/JS——滑块、演示、示意图——从该论文的资产目录供给，并跟随全站主题。</p>
+      </div>
+      <div class="card">
+        <h3>夜览模式</h3>
+        <p>全站 系统 / 浅色 / 深色 三态切换，首帧之前就应用、不闪白；时间线、阅读器、讲义、面板和交互组件都有配套深色配色。</p>
+      </div>
+      <div class="card">
+        <h3>Zotero 离线导入</h3>
+        <p><code>zotero_import.py -c "分组名"</code> 直接读 Zotero 的 SQLite，复用本地已有的 PDF——付费墙论文也能抽出图，全程不联网。</p>
+      </div>
+      <div class="card">
+        <h3>给 AI 用的批注接口</h3>
+        <p><code>GET /api/papers/{id}/annotations/context</code> 返回论文 + 批注 + 使用说明的 JSON；agent 用 <code>role: "assistant"</code> 把回复写回线程。</p>
+      </div>
+      <div class="card">
+        <h3>自带示例库</h3>
+        <p><code>examples/data/</code> 是一套公共论文组成的小库，配 <code>verify.py</code>：刚 clone 下来就能把每个界面、每条路由跑通，再放自己的论文。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="screens" class="wrap">
+    <h2>界面</h2>
+    <p class="section-lede">截图全部来自仓库自带的示例库，不是任何人的真实库。</p>
+    <div class="figure-row">
+      <figure>
+        <img class="shot" src="../assets/shots/reader.png" alt="PDF 阅读器与批注侧栏">
+        <figcaption class="shot-caption">阅读器 + 批注侧栏（PDF 与讲义的批注在同一列表）。</figcaption>
+      </figure>
+      <figure>
+        <img class="shot" src="../assets/shots/reader-region.png" alt="框选一张图作为一条区域批注">
+        <figcaption class="shot-caption">整张图作为一条区域批注。</figcaption>
+      </figure>
+      <figure>
+        <img class="shot" src="../assets/shots/study.png" alt="讲义模式：左 PDF，右渲染后的讲义">
+        <figcaption class="shot-caption">讲义模式——PDF 与渲染后的笔记并排。</figcaption>
+      </figure>
+      <figure>
+        <img class="shot" src="../assets/shots/widget.png" alt="讲义里嵌入的交互组件">
+        <figcaption class="shot-caption">用 <code>```widget</code> 块嵌进来的活组件。</figcaption>
+      </figure>
+      <figure>
+        <img class="shot" src="../assets/shots/study-stacked.png" alt="讲义模式上下分屏">
+        <figcaption class="shot-caption">同一个分屏，切成上下。</figcaption>
+      </figure>
+      <figure>
+        <img class="shot" src="../assets/shots/timeline-night.png" alt="深色模式下的时间线">
+        <figcaption class="shot-caption">夜览模式——同一个应用，深色配色。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="start" class="wrap">
+    <h2>2 分钟跑起来</h2>
+    <div class="two-col">
+      <div>
+        <ol class="steps">
+          <li><code>git clone https://github.com/george-wyy/MyLibrary-Plus.git &amp;&amp; cd MyLibrary-Plus</code></li>
+          <li><code>python3 -m venv .venv &amp;&amp; .venv/bin/pip install -e .</code></li>
+          <li><code>cp -R examples/data ./data</code>——或者从空库开始，加自己的论文</li>
+          <li><code>./mylibrary serve</code>，打开 <code>http://127.0.0.1:8765</code></li>
+        </ol>
+        <pre><code># 不用导入任何东西，先看每个界面
+cp -R examples/data ./data
+./mylibrary serve
+
+# 或者让自带的检查脚本证明安装没问题
+python3 examples/verify.py --serve
+
+# 换成自己的论文
+./mylibrary add "Attention Is All You Need"
+python zotero_import.py -c "阅读清单"</code></pre>
+      </div>
+      <div>
+        <div class="note">
+          <strong>数据不出你的机器。</strong> Web 界面没有任何鉴权，默认只绑
+          <code>127.0.0.1</code>。想在手机上看，走私有 overlay 网络（如 Tailscale）
+          或带鉴权的反代——仓库里两种都有文档。
+        </div>
+        <h3>它站在哪一层</h3>
+        <p style="color: var(--muted); font-size: .95rem;">
+          Zotero 继续当存储和 BibTeX 后端；MyLibrary-Plus 是你重新遇到论文、看图、批注、
+          再把线程交给 agent 的那一层。讲义就是你自己写的 Markdown——没有锁定，也没有账号。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="agents" class="wrap">
+    <h2>为「被 agent 驱动」而设计</h2>
+    <p class="section-lede">
+      批注不是死胡同——它是本地 API 上一份结构化的上下文。
+    </p>
+    <pre><code># 某篇论文的全部批注 + 使用说明
+curl localhost:8765/api/papers/$PAPER_ID/annotations/context
+
+# 把回复写回线程（侧栏里会显示为助手回复）
+curl -X POST localhost:8765/api/papers/$PAPER_ID/annotations/$ID/replies \
+     -H 'content-type: application/json' \
+     -d '{"content": "关键在于残差通路…", "role": "assistant"}'</code></pre>
+    <div class="grid">
+      <div class="card">
+        <h3>Agent 能读的文档</h3>
+        <p><a href="https://github.com/george-wyy/MyLibrary-Plus/blob/main/docs/ai-integration.md">docs/ai-integration.md</a> 逐条列出路由和载荷；<a href="https://github.com/george-wyy/MyLibrary-Plus/blob/main/docs/architecture.md">docs/architecture.md</a> 讲清数据模型和文件布局。</p>
+      </div>
+      <div class="card">
+        <h3>可信的检查脚本</h3>
+        <p><a href="https://github.com/george-wyy/MyLibrary-Plus/blob/main/examples/verify.py">examples/verify.py</a> 会真的把应用拉起来，逐条验证 README 里宣传的路由——每次发布前用的就是这道闸。</p>
+      </div>
+      <div class="card">
+        <h3>一切都是文件</h3>
+        <p>讲义是 <code>data/lectures/*.md</code>，概念笔记是 <code>data/notes/*.md</code>，论文在一个 SQLite 文件里。Agent 不用打开浏览器就能写这三样。</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span>MIT · fork 自 <a href="https://github.com/liusida/MyLibrary">liusida/MyLibrary</a></span>
+    <a href="https://github.com/george-wyy/MyLibrary-Plus">源码</a>
+    <a href="https://github.com/george-wyy/MyLibrary-Plus/blob/main/README.zh-CN.md">中文 README</a>
+    <a href="../index.html" lang="en">English</a>
+    <span style="margin-left:auto">截图来自公开 arXiv 论文</span>
+  </div>
+</footer>
+
+<script src="../assets/app.js"></script>
+</body>
+</html>

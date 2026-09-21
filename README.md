@@ -28,6 +28,9 @@ MyLibrary-Plus sits one layer above the reference manager and optimises for the
 **revisit**: the home page is a reverse-chronological timeline of paper cards showing
 the *figures*, so scrolling it feels like a feed of things you once cared about.
 
+**Landing page:** <https://george-wyy.github.io/MyLibrary-Plus/> (same content as this
+README, with screenshots and a 中文版).
+
 ```mermaid
 flowchart LR
   A["arXiv · OpenReview · DOI"]
