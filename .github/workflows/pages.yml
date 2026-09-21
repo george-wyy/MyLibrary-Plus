@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "public-site/**"
+      - "tests/test_public_site.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -27,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check the landing page's links resolve inside the repo
-        run: python3 -m pytest tests/test_public_site.py -q
+        run: python3 tests/test_public_site.py
 
       - uses: actions/configure-pages@v5
 
