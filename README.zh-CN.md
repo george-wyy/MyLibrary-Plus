@@ -77,9 +77,9 @@ flowchart LR
 
 ````markdown
 ```widget
-src: dragcal-explorer.html#step=gating
-height: 640
-title: 交互：四道门控
+src: softmax-temperature.html
+height: 420
+title: 交互：softmax 温度
 ```
 ````
 `study.js` 把它渲染成同源 iframe；服务端只从该论文的资产目录里吐白名单内的类型

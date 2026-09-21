@@ -129,9 +129,9 @@ same pipeline: `marked` (GFM mode) for structure, with a pre/post pass
   a key wins):
   ````markdown
   ```widget
-  src: dragcal-explorer.html#step=gating   # required, relative to the paper's asset dir
-  height: 640                              # optional, default 600, clamped to 200–2400
-  title: Interactive: the four gates       # optional iframe title
+  src: softmax-temperature.html   # required, relative to the paper's asset dir
+  height: 420                     # optional, default 600, clamped to 200–2400
+  title: Interactive: softmax temperature   # optional iframe title
   ```
   ````
   `study.js`'s `renderWidgetBlocks` parses the block with `resolveWidgetBlock`

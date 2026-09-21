@@ -82,9 +82,9 @@ the file under `data/lectures/assets/<paper_id>/` and point at it from a fenced 
 
 ````markdown
 ```widget
-src: dragcal-explorer.html#step=gating
-height: 640
-title: Interactive: the four gates
+src: softmax-temperature.html
+height: 420
+title: Interactive: softmax temperature
 ```
 ````
 
